@@ -1,0 +1,9 @@
+Ideas for shiny app:
+1. Auto file selection based on names
+2. Progress menu
+3. Display graph output when settings are adjusted
+4. Rarefaction support throughout
+5. EN support in statistical output
+6. Truncation of long gene names for graphing
+7. Generation of summary report
+8. Add support for biom file parsing

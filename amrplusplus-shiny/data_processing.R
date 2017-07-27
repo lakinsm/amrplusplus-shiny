@@ -56,6 +56,91 @@ snp_regex = c('ACRR',
               'TUFAB')
 
 
+validate_data_inputs <- function(amr_counts,
+                                 amr_annotations,
+                                 microbiome_data,
+                                 metadata) {
+    
+    if(is.null(amr_counts) && is.null(amr_annotations) &&
+       is.null(microbiome_data)) {
+        cat('Error: Please select AMR or Microbiome files for upload')
+        return()
+    }
+    
+    # AMR validation logic
+    if(!is.null(amr_counts) && !is.null(amr_annotations)) {
+        
+        if(!all(rownames(MRcounts(amr_counts)) %in% amr_annotations[['header']])) {
+            cat('Error: AMR count matrix gene names do not match the gene',
+                ' names in the annotation file. Make sure your annotation file',
+                ' matches the version of the MEGARes database used in the',
+                ' AMR++ nextflow pipeline.\n',
+                sep='')
+        }
+        
+        if(length(colnames(amr_annotations)) != 4) {
+            cat('Error: AMR annotation file has an improper number of columns\n',
+                'Check file integrity and proper CSV format.\n',
+                sep='')
+        }
+        
+        if(is.null(metadata)) {
+            cat('Error: Metadata file not present.\n')
+            return()
+        }
+        else {
+            
+            sample_column_id <- colnames(metadata)[1]
+            
+            if(!all(colnames(amr_counts) %in% metadata[[sample_column_id]])) {
+                cat('Error: AMR count matrix sample names do not match the',
+                    ' sample names in the metadata file (first column).',
+                    ' Check file integrity and proper CSV format.\n',
+                    sep='')
+            }
+            cat('AMR files validated\n')
+        }
+    }
+    else if(!is.null(amr_counts) && is.null(amr_annotations)) {
+        cat('Error: AMR count matrix detected but AMR annotations missing.\n')
+    }
+    else if(is.null(amr_counts) && !is.null(amr_annotations)) {
+        cat('Error: AMR annotations detected but AMR count matrix missing.\n')
+    }
+    else {
+        cat('No AMR data files detected: ',
+            'resistance analysis will not be performed.\n',
+            sep='')
+    }
+    
+    
+    # Microbiome validation logic
+    if(!is.null(microbiome_data)) {
+        
+        if(is.null(metadata)) {
+            cat('Error: Metadata file not present.\n')
+            return()
+        }
+        else {
+            sample_column_id <- colnames(metadata)[1]
+            
+            if(!all(colnames(microbiome_data) %in% metadata[[sample_column_id]])) {
+                cat('Error: Microbiome count matrix sample names do not match the',
+                    ' sample names in the metadata file (first column).',
+                    ' Check file integrity and proper CSV format.\n',
+                    sep='')
+            }
+            cat('Microbiome file validated\n')
+        }
+    }
+    else {
+        cat('No microbiome data file detected: microbiome analysis',
+            ' will not be performed.\n',
+            sep='')
+    }
+}
+
+
 create_working_directories <- function(graph_output_dir,
                                        stats_output_dir,
                                        statistical_analyses,
@@ -250,6 +335,28 @@ aggregate_and_filter <- function(dt_list,
             fData(AMR_raw_analytic_data[[l]]) <- data.frame(Feature=rownames(MRcounts(AMR_raw_analytic_data[[l]])))
             rownames(fData(AMR_raw_analytic_data[[l]])) <- rownames(MRcounts(AMR_raw_analytic_data[[l]]))
         }
+        
+        write.csv(make_sparse(amr_class, 'class', c('class')), 'amr_matrices/sparse_normalized/AMR_Class_Sparse_Normalized.csv',
+                  row.names=T)
+        write.table(amr_class, 'amr_matrices/normalized/AMR_Class_Normalized.csv', sep=',', row.names = F, col.names = T)
+        write.table(amr_class_raw, 'amr_matrices/raw/AMR_Class_Raw.csv', sep=',', row.names = F, col.names = T)
+        
+        
+        write.csv(make_sparse(amr_mech, 'mechanism', c('mechanism')), 'amr_matrices/sparse_normalized/AMR_Mechanism_Sparse_Normalized.csv',
+                  row.names=T)
+        write.table(amr_mech, 'amr_matrices/normalized/AMR_Mechanism_Normalized.csv', sep=',', row.names = F, col.names = T)
+        write.table(amr_mech_raw, 'amr_matrices/raw/AMR_Mechanism_Raw.csv', sep=',', row.names = F, col.names = T)
+        
+        write.csv(make_sparse(amr_group, 'group', c('group')), 'amr_matrices/sparse_normalized/AMR_Group_Sparse_Normalized.csv',
+                  row.names=T)
+        write.table(amr_group, 'amr_matrices/normalized/AMR_Group_Normalized.csv', sep=',', row.names = F, col.names = T)
+        write.table(amr_mech_raw, 'amr_matrices/raw/AMR_Group_Raw.csv', sep=',', row.names = F, col.names = T)
+        
+        write.csv(make_sparse(amr_norm, 'header', c('header', 'class', 'mechanism', 'group')),
+                  'amr_matrices/sparse_normalized/AMR_Gene_Sparse_Normalized.csv',
+                  row.names=T)
+        write.table(amr_norm, 'amr_matrices/normalized/AMR_Gene_Normalized.csv', sep=',', row.names = F, col.names = T)
+        write.table(amr_raw, 'amr_matrices/raw/AMR_Gene_Raw.csv', sep=',', row.names = F, col.names = T)
     }
     
     if(!is.na(kraken_norm)) {
@@ -379,6 +486,48 @@ aggregate_and_filter <- function(dt_list,
             fData(kraken_raw_analytic_data[[l]]) <- data.frame(Feature=rownames(MRcounts(kraken_raw_analytic_data[[l]])))
             rownames(fData(kraken_raw_analytic_data[[l]])) <- rownames(MRcounts(kraken_raw_analytic_data[[l]]))
         }
+        
+        write.csv(make_sparse(kraken_domain, 'Domain', c('Domain')),
+                  'kraken_matrices/sparse_normalized/kraken_Domain_Sparse_Normalized.csv',
+                  row.names=T)
+        write.table(kraken_domain, 'kraken_matrices/normalized/kraken_Domain_Normalized.csv', sep=',', row.names=F, col.names=T)
+        write.table(kraken_domain_raw, 'kraken_matrices/raw/kraken_Domain_Raw.csv', sep=',', row.names=F, col.names=T)
+        
+        write.csv(make_sparse(kraken_phylum, 'Phylum', c('Phylum')),
+                  'kraken_matrices/sparse_normalized/kraken_Phylum_Sparse_Normalized.csv',
+                  row.names=T)
+        write.table(kraken_phylum, 'kraken_matrices/normalized/kraken_Phylum_Normalized.csv', sep=',', row.names=F, col.names=T)
+        write.table(kraken_phylum_raw, 'kraken_matrices/raw/kraken_Phylum_Raw.csv', sep=',', row.names=F, col.names=T)
+        
+        write.csv(make_sparse(kraken_class, 'Class', c('Class')),
+                  'kraken_matrices/sparse_normalized/kraken_Class_Sparse_Normalized.csv',
+                  row.names=T)
+        write.table(kraken_class, 'kraken_matrices/normalized/kraken_Class_Normalized.csv', sep=',', row.names=F, col.names=T)
+        write.table(kraken_class_raw, 'kraken_matrices/raw/kraken_Class_Raw.csv', sep=',', row.names=F, col.names=T)
+        
+        write.csv(make_sparse(kraken_order, 'Order', c('Order')),
+                  'kraken_matrices/sparse_normalized/kraken_Order_Sparse_Normalized.csv',
+                  row.names=T)
+        write.table(kraken_order, 'kraken_matrices/normalized/kraken_Order_Normalized.csv', sep=',', row.names=F, col.names=T)
+        write.table(kraken_order_raw, 'kraken_matrices/raw/kraken_Order_Raw.csv', sep=',', row.names=F, col.names=T)
+        
+        write.csv(make_sparse(kraken_family, 'Family', c('Family')),
+                  'kraken_matrices/sparse_normalized/kraken_Family_Sparse_Normalized.csv',
+                  row.names=T)
+        write.table(kraken_family, 'kraken_matrices/normalized/kraken_Family_Normalized.csv', sep=',', row.names=F, col.names=T)
+        write.table(kraken_family_raw, 'kraken_matrices/raw/kraken_Family_Raw.csv', sep=',', row.names=F, col.names=T)
+        
+        write.csv(make_sparse(kraken_genus, 'Genus', c('Genus')),
+                  'kraken_matrices/sparse_normalized/kraken_Genus_Sparse_Normalized.csv',
+                  row.names=T)
+        write.table(kraken_genus, 'kraken_matrices/normalized/kraken_Genus_Normalized.csv', sep=',', row.names=F, col.names=T)
+        write.table(kraken_genus_raw, 'kraken_matrices/raw/kraken_Genus_Raw.csv', sep=',', row.names=F, col.names=T)
+        
+        write.csv(make_sparse(kraken_species, 'Species', c('Species')),
+                  'kraken_matrices/sparse_normalized/kraken_Species_Sparse_Normalized.csv',
+                  row.names=T)
+        write.table(kraken_species, 'kraken_matrices/normalized/kraken_Species_Normalized.csv', sep=',', row.names=F, col.names=T)
+        write.table(kraken_species_raw, 'kraken_matrices/raw/kraken_Species_Raw.csv', sep=',', row.names=F, col.names=T)
     }
     
     # Ensure that the metadata entries match the factor order of the MRexperiments
@@ -397,13 +546,3 @@ aggregate_and_filter <- function(dt_list,
                 kraken_analytic_names,
                 metadata))
 }
-
-
-
-
-
-
-
-
-
-
