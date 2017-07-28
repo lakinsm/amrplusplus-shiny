@@ -73,7 +73,10 @@ ui <- dashboardPage(
                         project, then select the required files from your
                         computer to be uploaded into the AMR++ Shiny App.
                         The sample IDs in your metadata file (the first column)
-                        must match the column names of your count matrices'
+                        must match the column names of your count matrices.  
+                        Once you have completed data and metadata upload and 
+                        validation with the Validate button, you are ready to 
+                        proceed to the next step: Format Metadata.'
                     )
                 ),
                 fluidRow(
@@ -92,6 +95,41 @@ ui <- dashboardPage(
             tabItem(tabName = 'format_metadata',
                     fluidRow(
                         box(
+                            checkboxGroupInput(inputId = 'metadata_fields',
+                                               label = 'Features to Use for Analysis',
+                                               choices = character(0)),
+                            uiOutput(outputId = 'metadata_types')
+                        ),
+                        box(
+                            tags$h2('Choose Metadata Types'),
+                            'The AMR++ Shiny App needs to understand how the 
+                            features in your metadata are encoded so that 
+                            analysis can be done properly.  On the left, select 
+                            each feature in your metadata that you would like 
+                            to be included in your analyses, then select from 
+                            the dropdown menus the data type that best 
+                            represents that feature.  Date/time data should be 
+                            converted to equally spaced days prior to using 
+                            the AMR++ Shiny App for analysis, then ordinal 
+                            should be selected as the data type at this step.',
+                            tags$p(),
+                            'When you have finished your selections, click the 
+                            Apply Metadata Types button at the bottom of the 
+                            window.  A summary of your metadata table will be 
+                            given below in R str() summary format.  You are then 
+                            ready to proceed to the next step: Configure Experiments.'
+                        )
+                    ),
+                    fluidRow(
+                        box(
+                            actionButton(inputId = 'apply_metadata_types',
+                                         label = 'Apply Metadata Types',
+                                         width = '150px'),
+                            tags$p(),
+                            tags$h3('Metadata Status:'),
+                            verbatimTextOutput(outputId = 'metadata_console'),
+                            width=12,
+                            background='light-blue'
                         )
                     )
             )
