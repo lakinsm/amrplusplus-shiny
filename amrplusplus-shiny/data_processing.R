@@ -206,7 +206,8 @@ create_working_directories <- function(graph_output_dir,
 }
 
 
-CSS_normalize_and_extract <- function(kraken_MRexp=NA,
+CSS_normalize_and_extract <- function(filtering_quantile,
+                                      kraken_MRexp=NA,
                                       amr_MRexp=NA) {
     amr_norm <- NA
     amr_raw <- NA
@@ -214,25 +215,92 @@ CSS_normalize_and_extract <- function(kraken_MRexp=NA,
     kraken_raw <- NA
     if(!is.na(kraken_MRexp)) {
         cumNorm(kraken_MRexp)
-        kraken_norm <- data.table(MRcounts(kraken, norm=T))
-        kraken_raw <- data.table(MRcounts(kraken, norm=F))
+        kraken_norm <- data.table(MRcounts(kraken_MRexp, norm=T))
+        kraken_norm_filtering_threshold <- quantile(rowSums(kraken_norm), filtering_quantile)
+        filter_indices <- rowSums(kraken_norm) >= kraken_norm_filtering_threshold
+        kraken_norm <- kraken_norm[filter_indices]
+        kraken_norm[, id := ( rownames(kraken_MRexp)[filter_indices] )]
+        
+        kraken_raw <- data.table(MRcounts(kraken_MRexp, norm=F))
+        kraken_raw_filtering_threshold <- quantile(rowSums(kraken_raw), filtering_quantile)
+        filter_indices <- rowSums(kraken_raw) >= kraken_raw_filtering_threshold
+        kraken_raw <- kraken_raw[filter_indices]
+        kraken_raw[, id := ( rownames(kraken_MRexp)[filter_indices] )]
     }
     if(!is.na(amr_MRexp)) {
         cumNorm(amr_MRexp)
-        amr_norm <- data.table(MRcounts(amr, norm=T))
-        amr_raw <- data.table(MRcounts(amr, norm=F))
+        amr_norm <- data.table(MRcounts(amr_MRexp, norm=T))
+        amr_norm_filtering_threshold <- quantile(rowSums(amr_norm), filtering_quantile)
+        filter_indices <- which(rowSums(amr_norm) >= amr_norm_filtering_threshold)
+        amr_norm <- amr_norm[filter_indices]
+        amr_norm[, header :=( rownames(amr_MRexp)[filter_indices] )]
+        
+        amr_raw <- data.table(MRcounts(amr_MRexp, norm=F))
+        amr_raw_filtering_threshold <- quantile(rowSums(amr_raw), filtering_quantile)
+        filter_indices <- rowSums(amr_raw) >= amr_raw_filtering_threshold
+        amr_raw <- amr_raw[filter_indices]
+        amr_raw[, header :=( rownames(amr_MRexp)[filter_indices] )]
     }
-    return(list(kraken_norm, kraken_raw, amr_norm, amr_raw))
+    return(list(kraken_MRexp, kraken_norm, kraken_raw, amr_MRexp, amr_norm, amr_raw))
+}
+
+
+rarefy_normalize_and_extract <- function(sampling_depth,
+                                         filtering_quantile,
+                                         kraken_MRexp=NA,
+                                         amr_MRexp=NA) {
+    amr_norm <- NA
+    amr_raw <- NA
+    kraken_norm <- NA
+    kraken_raw <- NA
+    if(!is.na(kraken_MRexp)) {
+        kraken_sample_ranking <- colSums(MRcounts(kraken_MRexp))[order(colSums(MRcounts(kraken_MRexp)))]
+        kraken_rare_threshold <- kraken_sample_ranking[sampling_depth]
+        
+        kraken_norm <- data.table(rrarefy(MRcounts(kraken_MRexp), sample=kraken_rare_threshold))
+        kraken_norm_filtering_threshold <- quantile(rowSums(kraken_norm), filtering_quantile)
+        filter_indices <- rowSums(kraken_norm) >= kraken_norm_filtering_threshold
+        kraken_norm <- kraken_norm[filter_indices]
+        kraken_norm[, id :=( rownames(kraken_MRexp)[filter_indices] )]
+        
+        kraken_raw <- data.table(MRcounts(kraken_MRexp, norm=F))
+        kraken_raw_filtering_threshold <- quantile(rowSums(kraken_raw), filtering_quantile)
+        filter_indices <- rowSums(kraken_raw) >= kraken_raw_filtering_threshold
+        kraken_raw <- kraken_raw[filter_indices]
+        kraken_raw[, id :=( rownames(kraken_MRexp)[filter_indices] )]
+    }
+    if(!is.na(amr_MRexp)) {
+        amr_sample_ranking <- colSums(MRcounts(amr_MRexp))[order(colSums(MRcounts(amr_MRexp)))]
+        amr_rare_threshold <- amr_sample_ranking[sampling_depth]
+        
+        amr_norm <- data.table(rrarefy(MRcounts(amr_MRexp), sample=amr_rare_threshold))
+        amr_norm_filtering_threshold <- quantile(rowSums(amr_norm), filtering_quantile)
+        filter_indices <- rowSums(amr_norm) >= amr_norm_filtering_threshold
+        amr_norm <- amr_norm[filter_indices]
+        amr_norm[, header :=( rownames(amr_MRexp)[filter_indices] )]
+        
+        amr_raw <- data.table(MRcounts(amr_MRexp, norm=F))
+        amr_raw_filtering_threshold <- quantile(rowSums(amr_raw), filtering_quantile)
+        filter_indices <- rowSums(amr_raw) >= amr_raw_filtering_threshold
+        amr_raw <- amr_raw[filter_indices]
+        amr_raw[, header :=( rownames(amr_MRexp)[filter_indices] )]
+    }
+    return(list(kraken_MRexp, kraken_norm, kraken_raw, amr_MRexp, amr_norm, amr_raw))
 }
 
 
 aggregate_and_filter <- function(dt_list,
                                  metadata,
                                  filter=TRUE) {
-    kraken_norm <- dt_list[[1]]
-    kraken_raw <- dt_list[[2]]
-    amr_norm <- dt_list[[3]]
-    amr_raw <- dt_list[[4]]
+    kraken <- dt_list[[1]]
+    kraken_norm <- dt_list[[2]]
+    kraken_raw <- dt_list[[3]]
+    amr <- dt_list[[4]]
+    amr_norm <- dt_list[[5]]
+    amr_raw <- dt_list[[6]]
+    annotations <- dt_list[[7]]
+    
+    sample_column_id <- colnames(metadata)[1]
     
     # Outputs
     AMR_analytic_data <- NA
@@ -247,11 +315,9 @@ aggregate_and_filter <- function(dt_list,
     kraken_analytic_names <- NA
     
     if(!is.na(amr_norm)) {
-        amr_norm[, header :=( rownames(amr) ), ]
         setkey(amr_norm, header)
         amr_norm <- annotations[amr_norm]
         
-        amr_raw[, header :=( rownames(amr) ), ]
         setkey(amr_raw, header)
         amr_raw <- annotations[amr_raw]
         
@@ -317,7 +383,7 @@ aggregate_and_filter <- function(dt_list,
                                    amr_mech_raw_analytic,
                                    amr_group_raw_analytic,
                                    amr_gene_raw_analytic)
-
+        
         for( l in 1:length(AMR_analytic_data) ) {
             sample_idx <- match(colnames(MRcounts(AMR_analytic_data[[l]])), metadata[[sample_column_id]])
             pData(AMR_analytic_data[[l]]) <- data.frame(
@@ -336,27 +402,30 @@ aggregate_and_filter <- function(dt_list,
             rownames(fData(AMR_raw_analytic_data[[l]])) <- rownames(MRcounts(AMR_raw_analytic_data[[l]]))
         }
         
-        write.csv(make_sparse(amr_class, 'class', c('class')), 'amr_matrices/sparse_normalized/AMR_Class_Sparse_Normalized.csv',
-                  row.names=T)
-        write.table(amr_class, 'amr_matrices/normalized/AMR_Class_Normalized.csv', sep=',', row.names = F, col.names = T)
-        write.table(amr_class_raw, 'amr_matrices/raw/AMR_Class_Raw.csv', sep=',', row.names = F, col.names = T)
+        metadata <- data.table(metadata[match(colnames(MRcounts(amr_class_analytic)), metadata[[sample_column_id]])])
+        setkeyv(metadata, sample_column_id)
         
-        
-        write.csv(make_sparse(amr_mech, 'mechanism', c('mechanism')), 'amr_matrices/sparse_normalized/AMR_Mechanism_Sparse_Normalized.csv',
-                  row.names=T)
-        write.table(amr_mech, 'amr_matrices/normalized/AMR_Mechanism_Normalized.csv', sep=',', row.names = F, col.names = T)
-        write.table(amr_mech_raw, 'amr_matrices/raw/AMR_Mechanism_Raw.csv', sep=',', row.names = F, col.names = T)
-        
-        write.csv(make_sparse(amr_group, 'group', c('group')), 'amr_matrices/sparse_normalized/AMR_Group_Sparse_Normalized.csv',
-                  row.names=T)
-        write.table(amr_group, 'amr_matrices/normalized/AMR_Group_Normalized.csv', sep=',', row.names = F, col.names = T)
-        write.table(amr_mech_raw, 'amr_matrices/raw/AMR_Group_Raw.csv', sep=',', row.names = F, col.names = T)
-        
-        write.csv(make_sparse(amr_norm, 'header', c('header', 'class', 'mechanism', 'group')),
-                  'amr_matrices/sparse_normalized/AMR_Gene_Sparse_Normalized.csv',
-                  row.names=T)
-        write.table(amr_norm, 'amr_matrices/normalized/AMR_Gene_Normalized.csv', sep=',', row.names = F, col.names = T)
-        write.table(amr_raw, 'amr_matrices/raw/AMR_Gene_Raw.csv', sep=',', row.names = F, col.names = T)
+        # write.csv(make_sparse(amr_class, 'class', c('class')), 'amr_matrices/sparse_normalized/AMR_Class_Sparse_Normalized.csv',
+        #           row.names=T)
+        # write.table(amr_class, 'amr_matrices/normalized/AMR_Class_Normalized.csv', sep=',', row.names = F, col.names = T)
+        # write.table(amr_class_raw, 'amr_matrices/raw/AMR_Class_Raw.csv', sep=',', row.names = F, col.names = T)
+        # 
+        # 
+        # write.csv(make_sparse(amr_mech, 'mechanism', c('mechanism')), 'amr_matrices/sparse_normalized/AMR_Mechanism_Sparse_Normalized.csv',
+        #           row.names=T)
+        # write.table(amr_mech, 'amr_matrices/normalized/AMR_Mechanism_Normalized.csv', sep=',', row.names = F, col.names = T)
+        # write.table(amr_mech_raw, 'amr_matrices/raw/AMR_Mechanism_Raw.csv', sep=',', row.names = F, col.names = T)
+        # 
+        # write.csv(make_sparse(amr_group, 'group', c('group')), 'amr_matrices/sparse_normalized/AMR_Group_Sparse_Normalized.csv',
+        #           row.names=T)
+        # write.table(amr_group, 'amr_matrices/normalized/AMR_Group_Normalized.csv', sep=',', row.names = F, col.names = T)
+        # write.table(amr_mech_raw, 'amr_matrices/raw/AMR_Group_Raw.csv', sep=',', row.names = F, col.names = T)
+        # 
+        # write.csv(make_sparse(amr_norm, 'header', c('header', 'class', 'mechanism', 'group')),
+        #           'amr_matrices/sparse_normalized/AMR_Gene_Sparse_Normalized.csv',
+        #           row.names=T)
+        # write.table(amr_norm, 'amr_matrices/normalized/AMR_Gene_Normalized.csv', sep=',', row.names = F, col.names = T)
+        # write.table(amr_raw, 'amr_matrices/raw/AMR_Gene_Raw.csv', sep=',', row.names = F, col.names = T)
     }
     
     if(!is.na(kraken_norm)) {
@@ -369,11 +438,9 @@ aggregate_and_filter <- function(dt_list,
                                    'Genus',
                                    'Species') := tstrsplit(id, '|', type.convert = TRUE, fixed = TRUE)]
         setkey(kraken_taxonomy, id)
-        kraken_norm[, id :=(rownames(kraken)), ]
         setkey(kraken_norm, id)
         kraken_norm <- kraken_taxonomy[kraken_norm]  # left outer join
         
-        kraken_raw[, id :=(rownames(kraken)), ]
         setkey(kraken_raw, id)
         kraken_raw <- kraken_taxonomy[kraken_raw]  # left outer join
         
@@ -473,7 +540,7 @@ aggregate_and_filter <- function(dt_list,
             sample_idx <- match(colnames(MRcounts(kraken_analytic_data[[l]])), metadata[[sample_column_id]])
             pData(kraken_analytic_data[[l]]) <- data.frame(
                 metadata[sample_idx, .SD, .SDcols=!sample_column_id])
-            rownames(pData(kraken_analytic_data[[l]])) <- metadata[sample_idx, .SD, .SDcols=sample_column_id][[sample_column_id]]
+            rownames(pData(kraken_analytic_data[[l]])) <- metadata[[sample_column_id]][sample_idx]
             fData(kraken_analytic_data[[l]]) <- data.frame(Feature=rownames(MRcounts(kraken_analytic_data[[l]])))
             rownames(fData(kraken_analytic_data[[l]])) <- rownames(MRcounts(kraken_analytic_data[[l]]))
         }
@@ -487,52 +554,54 @@ aggregate_and_filter <- function(dt_list,
             rownames(fData(kraken_raw_analytic_data[[l]])) <- rownames(MRcounts(kraken_raw_analytic_data[[l]]))
         }
         
-        write.csv(make_sparse(kraken_domain, 'Domain', c('Domain')),
-                  'kraken_matrices/sparse_normalized/kraken_Domain_Sparse_Normalized.csv',
-                  row.names=T)
-        write.table(kraken_domain, 'kraken_matrices/normalized/kraken_Domain_Normalized.csv', sep=',', row.names=F, col.names=T)
-        write.table(kraken_domain_raw, 'kraken_matrices/raw/kraken_Domain_Raw.csv', sep=',', row.names=F, col.names=T)
+        # Ensure that the metadata entries match the factor order of the MRexperiments
+        metadata <- data.table(metadata[match(colnames(MRcounts(kraken_domain_analytic)), metadata[[sample_column_id]])])
+        setkeyv(metadata, sample_column_id)
         
-        write.csv(make_sparse(kraken_phylum, 'Phylum', c('Phylum')),
-                  'kraken_matrices/sparse_normalized/kraken_Phylum_Sparse_Normalized.csv',
-                  row.names=T)
-        write.table(kraken_phylum, 'kraken_matrices/normalized/kraken_Phylum_Normalized.csv', sep=',', row.names=F, col.names=T)
-        write.table(kraken_phylum_raw, 'kraken_matrices/raw/kraken_Phylum_Raw.csv', sep=',', row.names=F, col.names=T)
-        
-        write.csv(make_sparse(kraken_class, 'Class', c('Class')),
-                  'kraken_matrices/sparse_normalized/kraken_Class_Sparse_Normalized.csv',
-                  row.names=T)
-        write.table(kraken_class, 'kraken_matrices/normalized/kraken_Class_Normalized.csv', sep=',', row.names=F, col.names=T)
-        write.table(kraken_class_raw, 'kraken_matrices/raw/kraken_Class_Raw.csv', sep=',', row.names=F, col.names=T)
-        
-        write.csv(make_sparse(kraken_order, 'Order', c('Order')),
-                  'kraken_matrices/sparse_normalized/kraken_Order_Sparse_Normalized.csv',
-                  row.names=T)
-        write.table(kraken_order, 'kraken_matrices/normalized/kraken_Order_Normalized.csv', sep=',', row.names=F, col.names=T)
-        write.table(kraken_order_raw, 'kraken_matrices/raw/kraken_Order_Raw.csv', sep=',', row.names=F, col.names=T)
-        
-        write.csv(make_sparse(kraken_family, 'Family', c('Family')),
-                  'kraken_matrices/sparse_normalized/kraken_Family_Sparse_Normalized.csv',
-                  row.names=T)
-        write.table(kraken_family, 'kraken_matrices/normalized/kraken_Family_Normalized.csv', sep=',', row.names=F, col.names=T)
-        write.table(kraken_family_raw, 'kraken_matrices/raw/kraken_Family_Raw.csv', sep=',', row.names=F, col.names=T)
-        
-        write.csv(make_sparse(kraken_genus, 'Genus', c('Genus')),
-                  'kraken_matrices/sparse_normalized/kraken_Genus_Sparse_Normalized.csv',
-                  row.names=T)
-        write.table(kraken_genus, 'kraken_matrices/normalized/kraken_Genus_Normalized.csv', sep=',', row.names=F, col.names=T)
-        write.table(kraken_genus_raw, 'kraken_matrices/raw/kraken_Genus_Raw.csv', sep=',', row.names=F, col.names=T)
-        
-        write.csv(make_sparse(kraken_species, 'Species', c('Species')),
-                  'kraken_matrices/sparse_normalized/kraken_Species_Sparse_Normalized.csv',
-                  row.names=T)
-        write.table(kraken_species, 'kraken_matrices/normalized/kraken_Species_Normalized.csv', sep=',', row.names=F, col.names=T)
-        write.table(kraken_species_raw, 'kraken_matrices/raw/kraken_Species_Raw.csv', sep=',', row.names=F, col.names=T)
+        # write.csv(make_sparse(kraken_domain, 'Domain', c('Domain')),
+        #           'kraken_matrices/sparse_normalized/kraken_Domain_Sparse_Normalized.csv',
+        #           row.names=T)
+        # write.table(kraken_domain, 'kraken_matrices/normalized/kraken_Domain_Normalized.csv', sep=',', row.names=F, col.names=T)
+        # write.table(kraken_domain_raw, 'kraken_matrices/raw/kraken_Domain_Raw.csv', sep=',', row.names=F, col.names=T)
+        # 
+        # write.csv(make_sparse(kraken_phylum, 'Phylum', c('Phylum')),
+        #           'kraken_matrices/sparse_normalized/kraken_Phylum_Sparse_Normalized.csv',
+        #           row.names=T)
+        # write.table(kraken_phylum, 'kraken_matrices/normalized/kraken_Phylum_Normalized.csv', sep=',', row.names=F, col.names=T)
+        # write.table(kraken_phylum_raw, 'kraken_matrices/raw/kraken_Phylum_Raw.csv', sep=',', row.names=F, col.names=T)
+        # 
+        # write.csv(make_sparse(kraken_class, 'Class', c('Class')),
+        #           'kraken_matrices/sparse_normalized/kraken_Class_Sparse_Normalized.csv',
+        #           row.names=T)
+        # write.table(kraken_class, 'kraken_matrices/normalized/kraken_Class_Normalized.csv', sep=',', row.names=F, col.names=T)
+        # write.table(kraken_class_raw, 'kraken_matrices/raw/kraken_Class_Raw.csv', sep=',', row.names=F, col.names=T)
+        # 
+        # write.csv(make_sparse(kraken_order, 'Order', c('Order')),
+        #           'kraken_matrices/sparse_normalized/kraken_Order_Sparse_Normalized.csv',
+        #           row.names=T)
+        # write.table(kraken_order, 'kraken_matrices/normalized/kraken_Order_Normalized.csv', sep=',', row.names=F, col.names=T)
+        # write.table(kraken_order_raw, 'kraken_matrices/raw/kraken_Order_Raw.csv', sep=',', row.names=F, col.names=T)
+        # 
+        # write.csv(make_sparse(kraken_family, 'Family', c('Family')),
+        #           'kraken_matrices/sparse_normalized/kraken_Family_Sparse_Normalized.csv',
+        #           row.names=T)
+        # write.table(kraken_family, 'kraken_matrices/normalized/kraken_Family_Normalized.csv', sep=',', row.names=F, col.names=T)
+        # write.table(kraken_family_raw, 'kraken_matrices/raw/kraken_Family_Raw.csv', sep=',', row.names=F, col.names=T)
+        # 
+        # write.csv(make_sparse(kraken_genus, 'Genus', c('Genus')),
+        #           'kraken_matrices/sparse_normalized/kraken_Genus_Sparse_Normalized.csv',
+        #           row.names=T)
+        # write.table(kraken_genus, 'kraken_matrices/normalized/kraken_Genus_Normalized.csv', sep=',', row.names=F, col.names=T)
+        # write.table(kraken_genus_raw, 'kraken_matrices/raw/kraken_Genus_Raw.csv', sep=',', row.names=F, col.names=T)
+        # 
+        # write.csv(make_sparse(kraken_species, 'Species', c('Species')),
+        #           'kraken_matrices/sparse_normalized/kraken_Species_Sparse_Normalized.csv',
+        #           row.names=T)
+        # write.table(kraken_species, 'kraken_matrices/normalized/kraken_Species_Normalized.csv', sep=',', row.names=F, col.names=T)
+        # write.table(kraken_species_raw, 'kraken_matrices/raw/kraken_Species_Raw.csv', sep=',', row.names=F, col.names=T)
     }
     
-    # Ensure that the metadata entries match the factor order of the MRexperiments
-    metadata <- data.table(metadata[match(colnames(MRcounts(amr_class_analytic)), metadata[, sample_column_id]), ])
-    setkeyv(metadata, sample_column_id)
+    
     
     return(list(AMR_analytic_data,
                 AMR_raw_analytic_data,
