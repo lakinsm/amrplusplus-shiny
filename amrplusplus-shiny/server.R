@@ -322,7 +322,7 @@ server <- function(input, output, session) {
             filtering_value <- as.numeric(input$filtering_slider) / 100
             
             if(input$exploratory_data_type_preview_select == 'Resistome') {
-                generate_exploratory_preview(data=list(amr_counts(), amr_annotations()),
+                g <- generate_exploratory_preview(data=list(amr_counts(), amr_annotations()),
                                              data_type='Resistome',
                                              metadata=metadata_updated$data,
                                              annotation_level=input$exploratory_annotation_level_preview_select,
@@ -334,7 +334,7 @@ server <- function(input, output, session) {
                                              subset_string=subset_string)
             }
             else if(input$exploratory_data_type_preview_select == 'Microbiome') {
-                generate_exploratory_preview(data=list(microbiome_data()),
+                g <- generate_exploratory_preview(data=list(microbiome_data()),
                                              data_type='Microbiome',
                                              metadata=metadata_updated$data,
                                              annotation_level=input$exploratory_annotation_level_preview_select,
@@ -344,6 +344,12 @@ server <- function(input, output, session) {
                                              norm_method=input$normalization_select,
                                              sample_depth=sample_depth,
                                              subset_string=subset_string)
+            }
+            
+            if('gg' %in% class(g)) {
+                output$exploratory_preview <- renderPlot({
+                    print(g)
+                }, width=800, height=800)
             }
         })
     })

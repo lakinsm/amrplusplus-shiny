@@ -76,7 +76,6 @@ data_subset <- function(data_obj, subsets) {
     return(data_obj[, local_subset])
 }
 
-
 data_subset_long <- function(data_obj, subsets) {
     local_subset <- c()          
     for( c in 1:length(subsets) ) {

@@ -1,5 +1,23 @@
 # Data preview code for exploratory preview section
 
+
+microbiome_lookup <- c(
+    'Kingdom' = 1,
+    'Phylum' = 2,
+    'Class' = 3,
+    'Order' = 4,
+    'Family' = 5,
+    'Genus' = 6,
+    'Species' = 7
+)
+
+amr_lookup <- c(
+    'Class' = 1,
+    'Mechanism' = 2,
+    'Group' = 3,
+    'Gene' = 4
+)
+
 generate_exploratory_preview <- function(data,
                                          data_type,
                                          metadata,
@@ -10,6 +28,8 @@ generate_exploratory_preview <- function(data,
                                          norm_method,
                                          sample_depth,
                                          subset_strings) {
+    out_plot <- character(0)
+    
     if(data_type == 'Resistome') {
         
         # Normalization
@@ -27,7 +47,18 @@ generate_exploratory_preview <- function(data,
         
         # Aggregation and data set creation
         analytic_list <- aggregate_and_filter(amr_data_list, data.table(metadata))
-        print(length(analytic_list))
+        
+        # Ordination
+        if(analysis_type == 'NMDS' || analysis_type == 'PCA') {
+            out_plot <- exploratory_ordination(analytic_MRexp=analytic_list[[1]][[amr_lookup[annotation_level]]],
+                                               metadata=analytic_list[[11]],
+                                               annotation_level=annotation_level,
+                                               feature_var=colnames(analytic_list[[11]])[1],
+                                               hull_var=metadata_feature,
+                                               analysis_subset=subset_strings,
+                                               data_type='Resistome',
+                                               method=analysis_type)
+        }
     }
     else if(data_type == 'Microbiome') {
         
@@ -48,4 +79,6 @@ generate_exploratory_preview <- function(data,
         analytic_list <- aggregate_and_filter(microbiome_data_list, data.table(metadata))
         print(length(analytic_list))
     }
+    
+    return(out_plot)
 }

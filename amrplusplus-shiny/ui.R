@@ -204,9 +204,11 @@ ui <- dashboardPage(
                         )
                     ),
                     fluidRow(
-                        box(
-                            uiOutput(outputId = 'exploratory_preview'),
-                            width = 12
+                        column(align='center',
+                               width=12,
+                               plotOutput(outputId = 'exploratory_preview',
+                                          width='100%',
+                                          height='800px')
                         )
                     )
                 )
