@@ -5,7 +5,8 @@ ui <- dashboardPage(
             menuItem('1. Load Data', tabName = 'load_data', icon = icon('upload')),
             menuItem('2. Format Metadata', tabName = 'format_metadata', icon = icon('th')),
             menuItem('3. Data Preprocessing Setup', tabName = 'data_processing_setup', icon = icon('cog')),
-            menuItem('4. View Results', tabName = 'view_results', icon = icon('bar-chart'))
+            menuItem('4. Statistical Setup', tabName = 'statistical_setup', icon = icon('cog')),
+            menuItem('5. Run Analyses', tabName = 'run_analyses', icon = icon('bar-chart'))
         )
     ),
     dashboardBody(
@@ -208,7 +209,7 @@ ui <- dashboardPage(
                                width=12,
                                plotOutput(outputId = 'exploratory_preview',
                                           width='100%',
-                                          height='800px')
+                                          height='720px')
                         )
                     )
                 )

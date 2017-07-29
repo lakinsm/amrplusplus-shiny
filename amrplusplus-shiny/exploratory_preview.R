@@ -2,7 +2,7 @@
 
 
 microbiome_lookup <- c(
-    'Kingdom' = 1,
+    'Domain' = 1,
     'Phylum' = 2,
     'Class' = 3,
     'Order' = 4,
@@ -48,7 +48,7 @@ generate_exploratory_preview <- function(data,
         # Aggregation and data set creation
         analytic_list <- aggregate_and_filter(amr_data_list, data.table(metadata))
         
-        # Ordination
+        # Plot generation
         if(analysis_type == 'NMDS' || analysis_type == 'PCA') {
             out_plot <- exploratory_ordination(analytic_MRexp=analytic_list[[1]][[amr_lookup[annotation_level]]],
                                                metadata=analytic_list[[11]],
@@ -58,6 +58,24 @@ generate_exploratory_preview <- function(data,
                                                analysis_subset=subset_strings,
                                                data_type='Resistome',
                                                method=analysis_type)
+        }
+        else if(analysis_type == 'Bar Graph') {
+            out_plot <- exploratory_barplot(melted_data=analytic_list[[3]],
+                                            metadata=analytic_list[[11]],
+                                            sample_var=colnames(analytic_list[[11]])[1],
+                                            group_var=metadata_feature,
+                                            level_var=annotation_level,
+                                            analysis_subset=subset_strings,
+                                            data_type='Resistome')
+        }
+        else if(analysis_type == 'Heatmap') {
+            out_plot <- exploratory_heatmap(melted_data=analytic_list[[3]],
+                                            metadata=analytic_list[[11]],
+                                            sample_var=colnames(analytic_list[[11]])[1],
+                                            group_var=metadata_feature,
+                                            level_var=annotation_level,
+                                            analysis_subset=subset_strings,
+                                            data_type='Resistome')
         }
     }
     else if(data_type == 'Microbiome') {
@@ -77,7 +95,36 @@ generate_exploratory_preview <- function(data,
         
         # Aggregation and data set creation
         analytic_list <- aggregate_and_filter(microbiome_data_list, data.table(metadata))
-        print(length(analytic_list))
+        
+        # Plot generation
+        if(analysis_type == 'NMDS' || analysis_type == 'PCA') {
+            out_plot <- exploratory_ordination(analytic_MRexp=analytic_list[[6]][[microbiome_lookup[annotation_level]]],
+                                               metadata=analytic_list[[11]],
+                                               annotation_level=annotation_level,
+                                               feature_var=colnames(analytic_list[[11]])[1],
+                                               hull_var=metadata_feature,
+                                               analysis_subset=subset_strings,
+                                               data_type='Microbiome',
+                                               method=analysis_type)
+        }
+        else if(analysis_type == 'Bar Graph') {
+            out_plot <- exploratory_barplot(melted_data=analytic_list[[8]],
+                                            metadata=analytic_list[[11]],
+                                            sample_var=colnames(analytic_list[[11]])[1],
+                                            group_var=metadata_feature,
+                                            level_var=annotation_level,
+                                            analysis_subset=subset_strings,
+                                            data_type='Microbiome')
+        }
+        else if(analysis_type == 'Heatmap') {
+            out_plot <- exploratory_heatmap(melted_data=analytic_list[[8]],
+                                            metadata=analytic_list[[11]],
+                                            sample_var=colnames(analytic_list[[11]])[1],
+                                            group_var=metadata_feature,
+                                            level_var=annotation_level,
+                                            analysis_subset=subset_strings,
+                                            data_type='Microbiome')
+        }
     }
     
     return(out_plot)

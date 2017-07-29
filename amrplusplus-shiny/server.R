@@ -171,7 +171,7 @@ server <- function(input, output, session) {
         else if(input$exploratory_data_type_preview_select == 'Microbiome') {
             updateSelectInput(session = session,
                               inputId = 'exploratory_annotation_level_preview_select',
-                              choices = c('Kingdom',
+                              choices = c('Domain',
                                           'Phylum',
                                           'Class',
                                           'Order',
@@ -349,7 +349,7 @@ server <- function(input, output, session) {
             if('gg' %in% class(g)) {
                 output$exploratory_preview <- renderPlot({
                     print(g)
-                }, width=800, height=800)
+                }, width=1024, height=720)
             }
         })
     })

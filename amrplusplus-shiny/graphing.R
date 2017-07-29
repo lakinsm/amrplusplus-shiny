@@ -552,16 +552,19 @@ exploratory_ordination <- function(analytic_MRexp,
 }
 
 
-meg_heatmap <- function(melted_data,
-                        metadata,
-                        sample_var,
-                        group_var,
-                        level_var,
-                        analysis_subset,
-                        outdir,
-                        data_type) {
+exploratory_heatmap <- function(melted_data,
+                                metadata,
+                                sample_var,
+                                group_var,
+                                level_var,
+                                analysis_subset,
+                                data_type) {
     tile_subset <- melted_data[Level_ID == level_var, ]
-    colnames(tile_subset)[colnames(tile_subset) == 'ID'] <- sample_var
+    
+    if(!(sample_var) %in% colnames(tile_subset) && ('ID' %in% tile_subset)) {
+        colnames(tile_subset)[colnames(tile_subset) == 'ID'] <- sample_var
+    }
+    
     setkeyv(tile_subset, sample_var)
     
     tile_subset <- metadata[tile_subset]
@@ -595,6 +598,8 @@ meg_heatmap <- function(melted_data,
     
     tile_subset <- tile_subset[Name %in% tile_names$Name, ]
     
+    tile_subset[['Name']] <- strtrim(tile_subset[['Name']], 40)
+    
     tile <- ggplot(tile_subset, aes_string(x=sample_var, y='Name')) +
         geom_tile(aes(fill=log2(Normalized_Count+1))) +
         facet_wrap(as.formula(paste('~', group_var)), switch='x', scales = 'free_x', nrow = 1) +
@@ -616,196 +621,23 @@ meg_heatmap <- function(melted_data,
         labs(fill= 'Log2 Normalized Count') +
         ggtitle(paste(data_type, ' ', level_var, ' Normalized Counts by ', group_var, '\n',
                       sep='', collapse=''))
-    png(filename=paste(outdir, '/', level_var, '_', group_var, '_',
-                       'Heatmap.png', sep='', collapse=''), width=1400, height=700)
-    print(tile)
-    dev.off()
+    
+    return(tile)
 }
 
 
-meg_alpha_rarefaction <- function(data_list,
-                                  data_names,
-                                  metadata,
-                                  sample_var,
-                                  group_var,
-                                  analysis_subset,
-                                  outdir,
-                                  data_type) {
-    all_alphadiv <- data.table(ID=character(),
-                               Level=character(),
-                               Value=numeric())
-    names(all_alphadiv)[1] <- sample_var
+exploratory_barplot <- function(melted_data,
+                                metadata,
+                                sample_var,
+                                group_var,
+                                level_var,
+                                analysis_subset,
+                                data_type) {
     
-    all_species_raw <- data.table(ID=character(),
-                                  Level=character(),
-                                  Value=numeric())
-    names(all_species_raw)[1] <- sample_var
-    
-    all_species_rare <- data.table(ID=character(),
-                                   Level=character(),
-                                   Value=numeric())
-    names(all_species_rare)[1] <- sample_var
-    
-    local_data <- data_list
-    
-    for( l in 1:length(local_data) ) {
-        
-        if(length(analysis_subset) > 0) {
-            local_data[[l]] <- data_subset(local_data[[l]], analysis_subset)
-        }
-        
-        sample_counts <- colSums(MRcounts(local_data[[l]]))
-        if(min(sample_counts) == 0) {
-            non_zero_sample <- min(sample_counts[sample_counts > 0])
-        }
-        else {
-            non_zero_sample <- 0
-        }
-        
-        local_obj <- alpha_rarefaction(MRcounts(local_data[[l]]), minlevel = non_zero_sample)
-        temp <- data.table(ID=names(local_obj$alphadiv),
-                           Level=rep(data_names[l],
-                                     length(local_obj$alphadiv)),
-                           Value=as.numeric(local_obj$alphadiv))
-        names(temp)[1] <- sample_var
-        all_alphadiv <- rbind(all_alphadiv, temp)
-        
-        temp <- data.table(ID=names(local_obj$raw_species_abundance),
-                           Level=rep(data_names[l],
-                                     length(local_obj$raw_species_abundance)),
-                           Value=as.numeric(local_obj$raw_species_abundance))
-        names(temp)[1] <- sample_var
-        all_species_raw <- rbind(all_species_raw, temp)
-        
-        temp <- data.table(ID=names(local_obj$rarefied_species_abundance),
-                           Level=rep(data_names[l],
-                                     length(local_obj$rarefied_species_abundance)),
-                           Value=as.numeric(local_obj$rarefied_species_abundance))
-        names(temp)[1] <- sample_var
-        all_species_rare <- rbind(all_species_rare, temp)
+    if(!(sample_var) %in% colnames(melted_data) && ('ID' %in% melted_data)) {
+        colnames(melted_data)[colnames(melted_data) == 'ID'] <- sample_var
     }
     
-    all_alphadiv <- within(all_alphadiv, Level
-                           <- factor(Level, levels=data_names,
-                                     ordered=T))
-    all_species_raw <- within(all_species_raw, Level
-                              <- factor(Level, levels=data_names,
-                                        ordered=T))
-    all_species_rare <- within(all_species_rare, Level
-                               <- factor(Level, levels=data_names,
-                                         ordered=T))
-    setkeyv(all_alphadiv, sample_var)
-    setkeyv(all_species_raw, sample_var)
-    setkeyv(all_species_rare, sample_var)
-    
-    all_alphadiv <- metadata[all_alphadiv]
-    all_species_raw <- metadata[all_species_raw]
-    all_species_rare <- metadata[all_species_rare]
-    
-    all_alphadiv <- all_alphadiv[!is.na(all_alphadiv[[group_var]]), ]
-    all_species_raw <- all_species_raw[!is.na(all_species_raw[[group_var]]), ]
-    all_species_rare <- all_species_rare[!is.na(all_species_rare[[group_var]]), ]
-    
-    alphadiv_type_sums <- all_alphadiv[Level==data_names[2], median(Value), by=group_var]
-    alphadiv_value_labels <- as.character(alphadiv_type_sums[[group_var]][order(alphadiv_type_sums$V1, decreasing=T)])
-    
-    species_raw_type_sums <- all_species_raw[Level==data_names[2], median(Value), by=group_var]
-    species_raw_value_labels <- as.character(species_raw_type_sums[[group_var]][order(species_raw_type_sums$V1,
-                                                                                      decreasing=T)])
-    species_rare_type_sums <- all_species_rare[Level==data_names[2], median(Value), by=group_var]
-    species_rare_value_labels <- as.character(species_rare_type_sums[[group_var]][order(species_rare_type_sums$V1,
-                                                                                        decreasing=T)])
-    
-    all_alphadiv[[group_var]] <- factor(all_alphadiv[[group_var]],
-                                        levels=alphadiv_value_labels, ordered=T)
-    
-    all_species_raw[[group_var]] <- factor(all_species_raw[[group_var]],
-                                           levels=species_raw_value_labels, ordered=T)
-    
-    all_species_rare[[group_var]] <- factor(all_species_rare[[group_var]],
-                                            levels=species_rare_value_labels, ordered=T)
-    
-    png(filename=paste(outdir, '/', data_type, '_alphadiversity_by_', group_var, '.png',
-                       sep='', collapse=''),
-        width=1024, height=768)
-    g_alphadiv <- ggplot(data=all_alphadiv, aes_string(x=group_var,
-                                                       y='Value',
-                                                       color=group_var)) +
-        geom_boxplot(size=1) + 
-        facet_wrap(~Level, nrow=2, scales='free_y')
-    g_alphadiv <- g_alphadiv +
-        ggtitle(paste('Alpha Diversity by ', group_var, ' for Rarefied data\nInverse Simpson Index',
-                      sep='', collapse='')) +
-        ylab('Inverse Simpson\'s Index\n') +
-        xlab(paste('\n', group_var, sep='', collapse='')) +
-        theme(strip.text.x=element_text(size=26),
-              axis.text.y=element_text(size=20),
-              axis.text.x=element_blank(),
-              axis.title.x=element_text(size=26),
-              axis.title.y=element_text(size=26, vjust=1),
-              #legend.position="right",
-              legend.title=element_text(size=24, vjust=1),
-              legend.text=element_text(size=20),
-              plot.title=element_text(size=30, hjust=0.5))
-    print(g_alphadiv)
-    dev.off()
-    
-    png(filename=paste(outdir, '/', data_type, '_raw_richness_by_', group_var, '.png',
-                       sep='', collapse=''),
-        width=1024, height=768)
-    g_sraw <- ggplot(data=all_species_raw, aes_string(group_var, 'Value', color=group_var)) +
-        geom_boxplot(size=1) + 
-        facet_wrap(~Level, nrow=2, scales='free_y')
-    g_sraw <- g_sraw +
-        ggtitle(paste('Species Richness by ', group_var, ' for Raw data\nInverse Simpson Index',
-                      sep='', collapse='')) +
-        ylab('Unique Species\n') +
-        xlab(paste('\n', group_var, sep='', collapse='')) +
-        theme(strip.text.x=element_text(size=26),
-              axis.text.y=element_text(size=20),
-              axis.text.x=element_blank(),
-              axis.title.x=element_text(size=26),
-              axis.title.y=element_text(size=26, vjust=1),
-              #legend.position="right",
-              legend.title=element_text(size=24, vjust=1),
-              legend.text=element_text(size=20),
-              plot.title=element_text(size=30, hjust=0.5))
-    print(g_sraw)
-    dev.off()
-    
-    png(filename=paste(outdir, '/', data_type, '_rarefied_richness_by_', group_var, '.png',
-                       sep='', collapse=''),
-        width=1024, height=768)
-    g_srare <- ggplot(data=all_species_rare, aes_string(group_var, 'Value', color=group_var)) +
-        geom_boxplot(size=1) + 
-        facet_wrap(~Level, nrow=2, scales='free_y')
-    g_srare <- g_srare +
-        ggtitle(paste('Species Richness by ', group_var, ' for Rarefied data\nInverse Simpson Index',
-                      sep='', collapse='')) +
-        ylab('Unique Species\n') +
-        xlab(paste('\n', group_var, sep='', collapse='')) +
-        theme(strip.text.x=element_text(size=26),
-              axis.text.y=element_text(size=20),
-              axis.text.x=element_blank(),
-              axis.title.x=element_text(size=26),
-              axis.title.y=element_text(size=26, vjust=1),
-              #legend.position="right",
-              legend.title=element_text(size=24, vjust=1),
-              legend.text=element_text(size=20),
-              plot.title=element_text(size=30, hjust=0.5))
-    print(g_srare)
-    dev.off()
-}
-
-
-meg_barplot <- function(melted_data,
-                        metadata,
-                        sample_var,
-                        group_var,
-                        level_var,
-                        analysis_subset,
-                        outdir,
-                        data_type) {
     setkeyv(melted_data, sample_var)
     melted_data <- metadata[melted_data]
     
@@ -853,6 +685,7 @@ meg_barplot <- function(melted_data,
     bar_subset[[group_var]] <- factor(bar_subset[[group_var]],
                                       levels=source_labels, ordered=T)
     
+    bar_subset[['Name']] <- strtrim(bar_subset[['Name']], 40)
     
     meg_bar <- ggplot(bar_subset, aes_string(x=group_var, y='Normalized_Count', fill='Name')) +
         geom_bar(stat='identity') + 
@@ -869,8 +702,5 @@ meg_barplot <- function(melted_data,
         ylab('Mean of Normalized Count\n') +
         ggtitle(paste('Mean ', data_type, ' ', level_var, ' Normalized Count by ', group_var, '\n',
                       sep='', collapse=''))
-    png(filename=paste(outdir, '/', data_type, '_', level_var, '_BarPlot_by_', group_var, '.png',
-                       sep='', collapse=''), width=1024, height=768)
-    print(meg_bar)
-    dev.off()
+    return(meg_bar)
 }
