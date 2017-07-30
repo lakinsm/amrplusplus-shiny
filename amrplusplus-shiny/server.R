@@ -456,19 +456,11 @@ server <- function(input, output, session) {
             else if(input$exploratory_analysis_type_select %in% c('ZIG Regression', 'Elastic Net Regression')) {
                 if(length(input$exploratory_statistical_feature_checkboxes) > 0 &&
                    input$exploratory_feature_select %in% input$exploratory_statistical_feature_checkboxes) {
-                    print('check3')
-                    print(input$exploratory_feature_select)
-                    print(input$exploratory_statistical_feature_checkboxes)
-                    print(input$exploratory_statistical_random_effect_select)
                     covars <- input$exploratory_statistical_feature_checkboxes[!(input$exploratory_statistical_feature_checkboxes %in% 
                                                                                    input$exploratory_statistical_random_effect_select)]
-                    print('check4')
-                    print(covars)
                     primary_effect_idx <- which(covars == input$exploratory_feature_select)
                     print(primary_effect_idx)
                     other_idx <- which(1:length(covars) != primary_effect_idx)
-                    print(other_idx)
-                    print('check5')
                     covars <- covars[c(primary_effect_idx, other_idx)]
                     covars <- c('~ 0', covars)
                     covar_str <- paste(covars, sep='', collapse=' + ')
@@ -497,7 +489,21 @@ server <- function(input, output, session) {
                                                            sort_by=input$exploratory_statistical_sortby_select)
                     }
                     else if(input$exploratory_data_type_preview_select == 'Microbiome') {
-                        
+                        dt <- generate_statistical_preview(data=list(microbiome_data()),
+                                                           data_type='Microbiome',
+                                                           metadata=metadata_updated$data,
+                                                           annotation_level=input$exploratory_annotation_level_preview_select,
+                                                           analysis_type=input$exploratory_analysis_type_select,
+                                                           metadata_feature=input$exploratory_feature_select,
+                                                           low_pass_filter_threshold=filtering_value,
+                                                           norm_method=input$normalization_select,
+                                                           sample_depth=sample_depth,
+                                                           subset_strings=subset_string,
+                                                           model_string=covar_str,
+                                                           random_effect=rand_effect,
+                                                           pval_threshold=as.numeric(input$exploratory_statistical_pvalue_slider),
+                                                           num_tophits=as.numeric(input$exploratory_statistical_number_slider),
+                                                           sort_by=input$exploratory_statistical_sortby_select)
                     }
                     
                     output$exploratory_preview <- renderUI({
