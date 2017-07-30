@@ -4,9 +4,11 @@ ui <- dashboardPage(
         sidebarMenu(
             menuItem('1. Load Data', tabName = 'load_data', icon = icon('upload')),
             menuItem('2. Format Metadata', tabName = 'format_metadata', icon = icon('th')),
-            menuItem('3. Data Preprocessing Setup', tabName = 'data_processing_setup', icon = icon('cog')),
-            menuItem('4. Statistical Setup', tabName = 'statistical_setup', icon = icon('cog')),
-            menuItem('5. Run Analyses', tabName = 'run_analyses', icon = icon('bar-chart'))
+            menuItem('3. Data Exploration', tabName = 'data_exploration', icon = icon('cog')),
+            menuItem('4. Experimental Designs', tabName = 'experimental_designs', icon = icon('dashboard')),
+            menuItem('5. Regression', tabName = 'run_analyses', icon = icon('bar-chart')),
+            menuItem('6. PERMANOVA', tabName = 'permanova', icon = icon('bar-chart')),
+            menuItem('7. Procrustes', tabName = 'procrustes', icon = icon('bar-chart'))
         )
     ),
     dashboardBody(
@@ -75,7 +77,8 @@ ui <- dashboardPage(
                         must match the column names of your count matrices.  
                         Once you have completed data and metadata upload and 
                         validation with the Validate button, you are ready to 
-                        proceed to the next step: Format Metadata.'
+                        proceed to the next step: Format Metadata.',
+                        collapsible=TRUE
                     )
                 ),
                 fluidRow(
@@ -116,7 +119,8 @@ ui <- dashboardPage(
                         Apply Metadata Types button at the bottom of the 
                         window.  A summary of your metadata table will be 
                         given below in R str() summary format.  You are then 
-                        ready to proceed to the next step: Data Processing Setup.'
+                        ready to proceed to the next step: Data Processing Setup.',
+                        collapsible=TRUE
                     )
                 ),
                 fluidRow(
@@ -132,11 +136,11 @@ ui <- dashboardPage(
                     )
                 )
             ),
-            tabItem(tabName = 'data_processing_setup',
+            tabItem(tabName = 'data_exploration',
                     fluidRow(
                         box(tags$h2('Explore Your Data in Real Time'),
                             'In this section, you can determine how combinations of data 
-                            preprocessing parameters affect the exploratory 
+                            preprocessing parameters affect the exploratory and statistical
                             analysis of your samples.  You must have completed 
                             the previous steps in order for this section to be 
                             populated appropriately.',
@@ -158,7 +162,8 @@ ui <- dashboardPage(
                             the Update Exploratory Preview button.  When the 
                             optimal parameters have been chosen, proceed to the 
                             next section: Statistical Setup.',
-                            width = 12)
+                            width = 12,
+                            collapsible=TRUE)
                     ),
                     fluidRow(
                         box(
@@ -166,7 +171,8 @@ ui <- dashboardPage(
                             selectInput(inputId = 'normalization_select',
                                        label = 'Sample Normalization Method',
                                        choices = c('Cumulative Sum Scaling',
-                                                   'Rarefaction')),
+                                                   'Rarefaction'),
+                                       selected='Cumulative Sum Scaling'),
                             uiOutput(outputId = 'exploratory_rarefaction_sample_threshold'),
                             sliderInput(inputId = 'filtering_slider',
                                         label = 'Low Pass Filter Threshold (Quantile)',
@@ -174,6 +180,7 @@ ui <- dashboardPage(
                                         max = 100,
                                         value = 15,
                                         step = 1),
+                            uiOutput(outputId = 'exploratory_statistical_parameters'),
                             actionButton(inputId = 'exploratory_update_preview',
                                          label = 'Update Exploratory Preview',
                                          width = '200px')
@@ -191,7 +198,10 @@ ui <- dashboardPage(
                                         choices = c('NMDS',
                                                     'PCA',
                                                     'Bar Graph',
-                                                    'Heatmap')),
+                                                    'Heatmap',
+                                                    'ZIG Regression',
+                                                    'Elastic Net Regression'),
+                                        selected='PCA'),
                             selectInput(inputId = 'exploratory_feature_select',
                                         label = 'Metadata Feature',
                                         choices = character(0)),
@@ -207,9 +217,7 @@ ui <- dashboardPage(
                     fluidRow(
                         column(align='center',
                                width=12,
-                               plotOutput(outputId = 'exploratory_preview',
-                                          width='100%',
-                                          height='720px')
+                               uiOutput(outputId = 'exploratory_preview')
                         )
                     )
                 )

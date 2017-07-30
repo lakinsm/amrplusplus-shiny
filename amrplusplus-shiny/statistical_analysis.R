@@ -181,3 +181,149 @@ elastic_net_regression_workflow <- function(experiment_data_lists,
                                             stats_output_dir) {
     
 }
+
+
+generate_contrasts <- function(analytic_MRexp,
+                               feature) {
+    values <- data.table(pData(analytic_MRexp))
+    values <- as.character(unique(values[[feature]]))
+    combs <- utils::combn(values, 2)
+    strs <- apply(combs, 2, function(x) {
+        paste(paste(feature, x[1], sep='', collapse=''),
+              ' - ',
+              paste(feature, x[2], sep='', collapse=''),
+              sep='', collapse='')
+    })
+    return(strs)
+}
+
+
+exploratory_zero_inflated_gaussian_regression <- function(analytic_MRexp,
+                                                          metadata,
+                                                          annotation_level,
+                                                          metadata_feature,
+                                                          zero_mod,
+                                                          data_mod,
+                                                          random_effect_var,
+                                                          data_type,
+                                                          pval,
+                                                          top_hits,
+                                                          sort_by) {
+    settings <- zigControl(maxit=50, verbose=F)
+    
+    local_MRexp <- analytic_MRexp
+    
+    col_selection <- as.integer(which(colSums(MRcounts(local_MRexp) > 0) > 1))
+    local_MRexp <- local_MRexp[, col_selection]
+    pData
+    
+    mod_select <- model.matrix(eval(parse(text=data_mod)), data=pData(local_MRexp))
+    zero_mod_select <- zero_mod[col_selection, ]
+    
+    cumNorm(local_MRexp)  # This is a placeholder for metagenomeSeq; we don't actually use these values
+    
+    res <- NA
+    
+    tryCatch(
+        {
+            if( is.na(random_effect_var) ) {
+                res <- fitZig(obj=local_MRexp,
+                                   mod=mod_select,
+                                   zeroMod=zero_mod_select,
+                                   control=settings,
+                                   useCSSoffset=F)
+            }
+            else {
+                res <- fitZig(obj=local_MRexp,
+                                   mod=mod_select,
+                                   zeroMod=zero_mod_select,
+                                   control=settings,
+                                   useCSSoffset=F,
+                                   useMixedModel=T,
+                                   block=pData(local_MRexp)[, random_effect_var])
+            }
+        },
+        error=function(e) {
+            print(paste('Model failed to converge for ', data_type, ' ', annotation_level,
+                        sep='', collapse=''))
+        }
+    )
+    
+    print(pData(local_MRexp))
+    print(ncol(local_MRexp))
+    print(nrow(pData(local_MRexp)))
+    
+    contrast_list <- generate_contrasts(local_MRexp,
+                                        metadata_feature)
+    print(contrast_list)
+    
+    local_contrasts <- as.list(contrast_list)
+    local_contrasts[[length(local_contrasts)+1]] <- res$fit$design
+    names(local_contrasts)[length(local_contrasts)] <- 'levels'
+    
+    print(local_contrasts)
+    
+    contrast_matrix <- do.call(makeContrasts, local_contrasts)
+    colnames(contrast_matrix) <- make.names(contrast_list)
+    
+    contrast_fit <- contrasts.fit(res$fit, contrast_matrix)        
+    contrast_fit <- eBayes(contrast_fit)
+    
+    stats_results <- data.table(
+        Node.Name=character(),
+        Contrast=character(),
+        logFC=numeric(),
+        CI.L=numeric(),
+        CI.R=numeric(),
+        AveExpr=numeric(),
+        t=numeric(),
+        P.Value=numeric(),
+        adj.P.Val=numeric(),
+        B=numeric()
+    )
+    
+    local_sort <- NA
+    # 'P-value', 'Effect Size', 'Abundance', 'F-statistic'
+    if(sort_by == 'P-value') {
+        local_sort <- 'P'
+    }
+    else if(sort_by == 'Effect Size') {
+        local_sort <- 'M'
+    }
+    else if(sort_by == 'Abundance') {
+        local_sort <- 'A'
+    }
+    else if(sort_by == 'T-statistic') {
+        local_sort <- 't'
+    }
+    
+    for( c in 1:ncol(contrast_fit$contrasts) ) {
+        tophits <- topTable(contrast_fit, p.value=pval, confint=T,
+                            number=top_hits, sort.by=local_sort, coef=c)
+        
+        if( nrow(tophits) > 0) {
+            temp_res <- data.table(
+                Node.Name=rownames(tophits),
+                Contrast=rep(colnames(contrast_fit$contrasts)[c], nrow(tophits))
+            )
+            temp_res <- cbind(temp_res, tophits)
+            stats_results <- rbind(stats_results, temp_res)
+        }
+        else {
+            print(paste('No significant results for', data_type,
+                        annotation_level, colnames(contrast_fit$contrasts)[c],
+                        sep=' ', collapse=''))
+        }
+    }
+    
+    return(stats_results)
+}
+
+
+
+
+
+
+
+
+

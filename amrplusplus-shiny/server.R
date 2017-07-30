@@ -115,6 +115,9 @@ server <- function(input, output, session) {
             output$exploratory_rarefaction_sample_threshold <- renderUI({
                 character(0)
             })
+            output$statistical_rarefaction_sample_threshold <- renderUI({
+                character(0)
+            })
         }
         else if(input$normalization_select == 'Rarefaction') {
             min_samples <- c()
@@ -168,7 +171,9 @@ server <- function(input, output, session) {
                                           'Group',
                                           'Gene'))
         }
-        else if(input$exploratory_data_type_preview_select == 'Microbiome') {
+        else if(input$exploratory_data_type_preview_select == 'Microbiome') { 
+            # ||
+            #     input$statistical_data_type_preview_select == 'Microbiome') {
             updateSelectInput(session = session,
                               inputId = 'exploratory_annotation_level_preview_select',
                               choices = c('Domain',
@@ -206,17 +211,17 @@ server <- function(input, output, session) {
             number_exploratory_subsets(newval)
             old_names <- exploratory_subset_obj_names$data
             exploratory_subset_obj_names$data <- c(old_names,
-                                                   paste('value_', number_exploratory_subsets(), sep='', collapse=''),
-                                                   paste('logic_', number_exploratory_subsets(), sep='', collapse=''))
+                                                   paste('exploratory_value_', number_exploratory_subsets(), sep='', collapse=''),
+                                                   paste('exploratory_logic_', number_exploratory_subsets(), sep='', collapse=''))
             dtype <- input[[input$exploratory_feature_select]]
             if(dtype == 'Categorical') {
                 output$exploratory_subset_rules <- renderUI({
                     lapply(1:number_exploratory_subsets(), function(x) {
                         splitLayout(cellWidths = c('25%', '75%'),
-                                    selectInput(inputId = paste('logic_', x, sep='', collapse=''),
+                                    selectInput(inputId = paste('exploratory_logic_', x, sep='', collapse=''),
                                                 label = NULL,
                                                 choices = c('==', '!=')),
-                                    selectInput(inputId = paste('value_', x, sep='', collapse=''),
+                                    selectInput(inputId = paste('exploratory_value_', x, sep='', collapse=''),
                                                 label = NULL,
                                                 choices = as.character(unique(metadata_updated$data[, input$exploratory_feature_select])))
                         )
@@ -227,10 +232,10 @@ server <- function(input, output, session) {
                 output$exploratory_subset_rules <- renderUI({
                     lapply(1:number_exploratory_subsets(), function(x) {
                         splitLayout(cellWidths = c('25%', '75%'),
-                                    selectInput(inputId = paste('logic_', x, sep='', collapse=''),
+                                    selectInput(inputId = paste('exploratory_logic_', x, sep='', collapse=''),
                                                 label = NULL,
                                                 choices = c('==', '!=', '>', '<', '>=', '<=')),
-                                    textInput(inputId = paste('value_', x, sep='', collapse=''),
+                                    textInput(inputId = paste('exploratory_value_', x, sep='', collapse=''),
                                               label = NULL)
                         )
                     })
@@ -252,10 +257,10 @@ server <- function(input, output, session) {
                     output$exploratory_subset_rules <- renderUI({
                         lapply(1:number_exploratory_subsets(), function(x) {
                             splitLayout(cellWidths = c('25%', '75%'),
-                                        selectInput(inputId = paste('logic_', x, sep='', collapse=''),
+                                        selectInput(inputId = paste('exploratory_logic_', x, sep='', collapse=''),
                                                     label = NULL,
                                                     choices = c('==', '!=')),
-                                        selectInput(inputId = paste('value_', x, sep='', collapse=''),
+                                        selectInput(inputId = paste('exploratory_value_', x, sep='', collapse=''),
                                                     label = NULL,
                                                     choices = as.character(unique(metadata_updated$data[, input$exploratory_feature_select])))
                             )
@@ -266,10 +271,10 @@ server <- function(input, output, session) {
                     output$exploratory_subset_rules <- renderUI({
                         lapply(1:number_exploratory_subsets(), function(x) {
                             splitLayout(cellWidths = c('25%', '75%'),
-                                        selectInput(inputId = paste('logic_', x, sep='', collapse=''),
+                                        selectInput(inputId = paste('exploratory_logic_', x, sep='', collapse=''),
                                                     label = NULL,
                                                     choices = c('==', '!=', '>', '<', '>=', '<=')),
-                                        textInput(inputId = paste('value_', x, sep='', collapse=''),
+                                        textInput(inputId = paste('exploratory_value_', x, sep='', collapse=''),
                                                   label = NULL)
                             )
                         })
@@ -285,10 +290,9 @@ server <- function(input, output, session) {
                 })
             }
         }
-        
     })
     
-    # Make sure to clear all exploratory subset rules on feature change
+    # Make sure to clear all subset rules on exploratory feature change
     observe({
         x <- input$exploratory_feature_select
         output$exploratory_subset_rules <- renderUI({
@@ -296,6 +300,94 @@ server <- function(input, output, session) {
         })
         number_exploratory_subsets(0)
         exploratory_subset_obj_names$data <- c()
+    })
+    
+    # Add statistical parameter menus if a statistical method is selected
+    observe({
+        x <- input$exploratory_analysis_type_select
+        isolate({
+            if(x %in% c('ZIG Regression', 'Elastic Net Regression')) {
+                if(input$exploratory_analysis_type_select == 'ZIG Regression') {
+                    output$exploratory_statistical_parameters <- renderUI({
+                        tagList(
+                            sliderInput(inputId = 'exploratory_statistical_pvalue_slider',
+                                        label = 'Minimum P-value Threshold',
+                                        min = 0.01,
+                                        max = 0.2,
+                                        step=0.01,
+                                        value=0.1),
+                            sliderInput(inputId = 'exploratory_statistical_number_slider',
+                                        label = '# Significant Results to Display',
+                                        min = 1,
+                                        max = 100,
+                                        step=1,
+                                        value=20),
+                            selectInput(inputId = 'exploratory_statistical_sortby_select',
+                                        label = 'Sort Results by Field',
+                                        choices = c('P-value', 'Effect Size', 'Abundance', 'T-statistic')),
+                            checkboxGroupInput(inputId = 'exploratory_statistical_feature_checkboxes',
+                                               label = 'Features to Include in Regression',
+                                               choices = active_metadata_fields$data,
+                                               selected = active_metadata_fields$data),
+                            selectInput(inputId = 'exploratory_statistical_random_effect_select',
+                                        label = 'Random Effect to Include in Regression',
+                                        choices = c('None', active_metadata_fields$data[!(active_metadata_fields$data %in% 
+                                                                                              input$exploratory_feature_select)]),
+                                        selected='None')
+                        )
+                    })
+                }
+                else if(input$exploratory_analysis_type_select == 'Elastic Net Regression') {
+                    output$exploratory_statistical_parameters <- renderUI({
+                        tagList(
+                            sliderInput(inputId = 'exploratory_statistical_pvalue_slider',
+                                        label = 'Minimum P-value Threshold',
+                                        min = 0.01,
+                                        max = 0.2,
+                                        step=0.01,
+                                        value=0.1),
+                            sliderInput(inputId = 'exploratory_statistical_number_slider',
+                                        label = '# Significant Results to Display',
+                                        min = 1,
+                                        max = 100,
+                                        step=1,
+                                        value=20),
+                            selectInput(inputId = 'exploratory_statistical_sortby_select',
+                                        label = 'Sort Results by Field',
+                                        choices = c('P-value', 'Effect Size', 'Abundance', 'T-statistic')),
+                            checkboxGroupInput(inputId = 'exploratory_statistical_feature_checkboxes',
+                                               label = 'Fixed Effects to Include in Regression',
+                                               choices = active_metadata_fields$data,
+                                               selected = active_metadata_fields$data),
+                            selectInput(inputId = 'exploratory_statistical_random_effect_select',
+                                        label = 'Random Effect to Include in Regression',
+                                        choices = c('None', active_metadata_fields$data[!(active_metadata_fields$data %in% 
+                                                                                              input$exploratory_feature_select) &&
+                                                                                            !(active_metadata_fields$data %in% 
+                                                                                                  input$exploratory_statistical_feature_checkboxes)]),
+                                        selected='None')
+                        )
+                    })
+                }
+            }
+            else {
+                output$exploratory_statistical_parameters <- renderUI({
+                    character(0)
+                })
+            }
+        })
+    })
+    
+    # Update random effect choices if feature select changes
+    observe({
+        if(input$exploratory_analysis_type_select %in% c('ZIG Regression', 'Elastic Net Regression')) {
+            x <- input$exploratory_feature_select
+            updateSelectInput(session = session,
+                              inputId = 'exploratory_statistical_random_effect_select',
+                              choices = c('None', active_metadata_fields$data[!(active_metadata_fields$data %in% 
+                                                                                    input$exploratory_feature_select)]),
+                              selected='None')
+        }
     })
     
     # Run preview code for exploratory analysis on button click
@@ -312,6 +404,7 @@ server <- function(input, output, session) {
                     subset_string <- c(subset_string, combined_str)
                 }
             }
+            print('check1')
             
             
             sample_depth <- 0
@@ -319,37 +412,101 @@ server <- function(input, output, session) {
                 sample_depth <- as.numeric(input$rarefaction_slider)
             }
             
+            print('check2')
+            
             filtering_value <- as.numeric(input$filtering_slider) / 100
             
-            if(input$exploratory_data_type_preview_select == 'Resistome') {
-                g <- generate_exploratory_preview(data=list(amr_counts(), amr_annotations()),
-                                             data_type='Resistome',
-                                             metadata=metadata_updated$data,
-                                             annotation_level=input$exploratory_annotation_level_preview_select,
-                                             analysis_type=input$exploratory_analysis_type_select,
-                                             metadata_feature=input$exploratory_feature_select,
-                                             low_pass_filter_threshold=filtering_value,
-                                             norm_method=input$normalization_select,
-                                             sample_depth=sample_depth,
-                                             subset_string=subset_string)
+            if(input$exploratory_analysis_type_select %in% c('NMDS', 'PCA', 'Bar Plot', 'Heatmap')) {
+                if(input$exploratory_data_type_preview_select == 'Resistome') {
+                    g <- generate_exploratory_preview(data=list(amr_counts(), amr_annotations()),
+                                                      data_type='Resistome',
+                                                      metadata=metadata_updated$data,
+                                                      annotation_level=input$exploratory_annotation_level_preview_select,
+                                                      analysis_type=input$exploratory_analysis_type_select,
+                                                      metadata_feature=input$exploratory_feature_select,
+                                                      low_pass_filter_threshold=filtering_value,
+                                                      norm_method=input$normalization_select,
+                                                      sample_depth=sample_depth,
+                                                      subset_string=subset_string)
+                }
+                else if(input$exploratory_data_type_preview_select == 'Microbiome') {
+                    g <- generate_exploratory_preview(data=list(microbiome_data()),
+                                                      data_type='Microbiome',
+                                                      metadata=metadata_updated$data,
+                                                      annotation_level=input$exploratory_annotation_level_preview_select,
+                                                      analysis_type=input$exploratory_analysis_type_select,
+                                                      metadata_feature=input$exploratory_feature_select,
+                                                      low_pass_filter_threshold=filtering_value,
+                                                      norm_method=input$normalization_select,
+                                                      sample_depth=sample_depth,
+                                                      subset_string=subset_string)
+                }
+                
+                output$exploratory_preview <- renderUI({
+                    plotOutput(outputId = 'exploratory_output',
+                               width = '100%',
+                               height='720px')
+                })
+                if('gg' %in% class(g)) {
+                    output$exploratory_output <- renderPlot({
+                        print(g)
+                    }, width=1024, height=720)
+                }
             }
-            else if(input$exploratory_data_type_preview_select == 'Microbiome') {
-                g <- generate_exploratory_preview(data=list(microbiome_data()),
-                                             data_type='Microbiome',
-                                             metadata=metadata_updated$data,
-                                             annotation_level=input$exploratory_annotation_level_preview_select,
-                                             analysis_type=input$exploratory_analysis_type_select,
-                                             metadata_feature=input$exploratory_feature_select,
-                                             low_pass_filter_threshold=filtering_value,
-                                             norm_method=input$normalization_select,
-                                             sample_depth=sample_depth,
-                                             subset_string=subset_string)
-            }
-            
-            if('gg' %in% class(g)) {
-                output$exploratory_preview <- renderPlot({
-                    print(g)
-                }, width=1024, height=720)
+            else if(input$exploratory_analysis_type_select %in% c('ZIG Regression', 'Elastic Net Regression')) {
+                if(length(input$exploratory_statistical_feature_checkboxes) > 0 &&
+                   input$exploratory_feature_select %in% input$exploratory_statistical_feature_checkboxes) {
+                    print('check3')
+                    print(input$exploratory_feature_select)
+                    print(input$exploratory_statistical_feature_checkboxes)
+                    print(input$exploratory_statistical_random_effect_select)
+                    covars <- input$exploratory_statistical_feature_checkboxes[!(input$exploratory_statistical_feature_checkboxes %in% 
+                                                                                   input$exploratory_statistical_random_effect_select)]
+                    print('check4')
+                    print(covars)
+                    primary_effect_idx <- which(covars == input$exploratory_feature_select)
+                    print(primary_effect_idx)
+                    other_idx <- which(1:length(covars) != primary_effect_idx)
+                    print(other_idx)
+                    print('check5')
+                    covars <- covars[c(primary_effect_idx, other_idx)]
+                    covars <- c('~ 0', covars)
+                    covar_str <- paste(covars, sep='', collapse=' + ')
+                    print(covar_str)
+                    
+                    rand_effect <- NA
+                    if(input$exploratory_statistical_random_effect_select != 'None') {
+                        rand_effect <- input$exploratory_statistical_random_effect_select
+                    }
+                    
+                    if(input$exploratory_data_type_preview_select == 'Resistome') {
+                        dt <- generate_statistical_preview(data=list(amr_counts(), amr_annotations()),
+                                                           data_type='Resistome',
+                                                           metadata=metadata_updated$data,
+                                                           annotation_level=input$exploratory_annotation_level_preview_select,
+                                                           analysis_type=input$exploratory_analysis_type_select,
+                                                           metadata_feature=input$exploratory_feature_select,
+                                                           low_pass_filter_threshold=filtering_value,
+                                                           norm_method=input$normalization_select,
+                                                           sample_depth=sample_depth,
+                                                           subset_strings=subset_string,
+                                                           model_string=covar_str,
+                                                           random_effect=rand_effect,
+                                                           pval_threshold=as.numeric(input$exploratory_statistical_pvalue_slider),
+                                                           num_tophits=as.numeric(input$exploratory_statistical_number_slider),
+                                                           sort_by=input$exploratory_statistical_sortby_select)
+                    }
+                    else if(input$exploratory_data_type_preview_select == 'Microbiome') {
+                        
+                    }
+                    
+                    output$exploratory_preview <- renderUI({
+                        dataTableOutput(outputId = 'exploratory_output')
+                    })
+                    output$exploratory_output <- renderDataTable({
+                        dt
+                    })
+                }
             }
         })
     })
