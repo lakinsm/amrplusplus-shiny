@@ -6,9 +6,8 @@ ui <- dashboardPage(
             menuItem('2. Format Metadata', tabName = 'format_metadata', icon = icon('th')),
             menuItem('3. Data Exploration', tabName = 'data_exploration', icon = icon('cog')),
             menuItem('4. Experimental Designs', tabName = 'experimental_designs', icon = icon('dashboard')),
-            menuItem('5. Regression', tabName = 'run_analyses', icon = icon('bar-chart')),
-            menuItem('6. PERMANOVA', tabName = 'permanova', icon = icon('bar-chart')),
-            menuItem('7. Procrustes', tabName = 'procrustes', icon = icon('bar-chart'))
+            menuItem('5. PERMANOVA', tabName = 'permanova', icon = icon('bar-chart')),
+            menuItem('6. Procrustes', tabName = 'procrustes', icon = icon('bar-chart'))
         )
     ),
     dashboardBody(
@@ -220,7 +219,41 @@ ui <- dashboardPage(
                                uiOutput(outputId = 'exploratory_preview')
                         )
                     )
+                ),
+            tabItem(
+                tabName = 'experimental_designs',
+                fluidRow(
+                    box(width = 12,
+                        collapsible = TRUE,
+                        tags$h2('Setup and Run Your Experiments'),
+                        'Now that you\'ve explored your data, you can set
+                        up experiments in this tab to perform ordination, plotting,  
+                        and regression-based analyses using different 
+                        combinations of parameters.  Click on Add an Experiment to 
+                        get started.  You can remove an experiment by clicking on 
+                        Remove Experiment #, and it will not affect the status or
+                         values of your other experiments.  When experimental setup 
+                        is complete, run the experiments by clicking on Run All Experiments.
+                          Graphs and tables will be zipped and available for download 
+                        following completion of the analyses.'
+                    )
+                ),
+                fluidRow(
+                    box(width = 8,
+                        uiOutput(outputId = 'experimental_design_boxes'),
+                        actionButton(inputId = 'experimental_design_add',
+                                     label = 'Add an Experiment',
+                                     width = '200px')
+                    ),
+                    box(width = 4,
+                        background='light-blue',
+                        actionButton(inputId = 'experimental_design_run',
+                                     label = 'Run All Experiments',
+                                     width = '200px'),
+                        textOutput(outputId = 'experimental_design_run_output')
+                    )
                 )
+            )
         )
     )
 )

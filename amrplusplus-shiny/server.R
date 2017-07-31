@@ -404,15 +404,11 @@ server <- function(input, output, session) {
                     subset_string <- c(subset_string, combined_str)
                 }
             }
-            print('check1')
-            
             
             sample_depth <- 0
             if(input$normalization_select == 'Rarefaction') {
                 sample_depth <- as.numeric(input$rarefaction_slider)
             }
-            
-            print('check2')
             
             filtering_value <- as.numeric(input$filtering_slider) / 100
             
@@ -516,5 +512,288 @@ server <- function(input, output, session) {
             }
         })
     })
+    
+    # Reactive data structure for storing experimental designs
+    experimental_designs <- reactiveValues(names=list(),
+                                           experiments=list(),
+                                           activity=list(),
+                                           taglist=list())
+    
+    
+    # Function to make observers dynamically for the experimental designs
+    # We will need a primary observer for remove event, and observers for 
+    # the other values as well to update the data structure for persistent
+    # values
+    makeObservers <- eventReactive(input$experimental_design_add, {
+        local_activity <- experimental_designs$activity
+        
+        min_samples <- c()
+        isolate({
+            if(!is.null(metadata()))  {
+                min_samples <- c(min_samples, nrow(metadata()))
+            }
+            if(!is.null(amr_counts())) {
+                min_samples <- c(min_samples, ncol(amr_counts()))
+            }
+            if(!is.null(microbiome_data())) {
+                min_samples <- c(min_samples, ncol(microbiome_data()))
+            }
+        })
+        
+        res <- lapply(1:length(local_activity), function(i) {
+            if(local_activity[[i]]) {
+                # Create an observer for updating random effect field on change of primary feature
+                observe({
+                    x <- input[[paste(experimental_designs$names[[i]], '_feature_select', sep='', collapse='')]]
+                    updateSelectInput(session = session,
+                                      inputId = paste(experimental_designs$names[[i]], '_random_effect_select', sep='', collapse=''),
+                                      choices = c('None', input[[paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse='')]][
+                                          input[[paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse='')]] != x
+                                      ]))
+                })
+                
+                # Create an observer for removal
+                observeEvent(input[[paste(experimental_designs$names[[i]], '_delete', sep='', collapse='')]], {
+                    experimental_designs$activity[[i]] <- FALSE
+                    experimental_designs$taglist[[i]] <- character(0)
+                    
+                    # Update current values into data structure
+                    exp_list <- experimental_designs$taglist
+                    if(length(experimental_designs$activity) > 0) {
+                        for(i in 1:(length(experimental_designs$activity))) {
+                            if(experimental_designs$activity[[i]]) {
+                                exp_list[[i]] <- tagList(
+                                    box(
+                                        splitLayout(cellWidths = c('50%', '50%'),
+                                                    textInput(inputId = paste(experimental_designs$names[[i]], '_name', sep='', collapse=''),
+                                                              label = 'Experiment Name',
+                                                              value = input[[paste(experimental_designs$names[[i]], '_name', sep='', collapse='')]]),
+                                                    actionButton(inputId = paste(experimental_designs$names[[i]], '_delete', sep='', collapse=''),
+                                                                 label = 'Remove Experiment',
+                                                                 width = '70%')
+                                        ),
+                                        selectInput(inputId = paste(experimental_designs$names[[i]], '_feature_select', sep='', collapse=''),
+                                                    label = 'Select a Primary Feature',
+                                                    choices = experimental_designs$experiments[[i]][['active_features']],
+                                                    selected = input[[paste(experimental_designs$names[[i]], '_feature_select', sep='', collapse='')]]),
+                                        selectInput(inputId = paste(experimental_designs$names[[i]], '_analysis_select', sep='', collapse=''),
+                                                    label = 'Select Regression Type',
+                                                    choices = c('ZIG Regression', 'Elastic Net Regression'),
+                                                    selected = input[[paste(experimental_designs$names[[i]], '_analysis_select', sep='', collapse='')]]),
+                                        selectInput(inputId = paste(experimental_designs$names[[i]], '_normalization_select', sep='', collapse=''),
+                                                    label = 'Select Normalization Method',
+                                                    choices = c('Cumulative Sum Scaling', 'Rarefaction'),
+                                                    selected = input[[paste(experimental_designs$names[[i]], '_normalization_select', sep='', collapse='')]]),
+                                        sliderInput(inputId = paste(experimental_designs$names[[i]], '_sample_depth_slider', sep='', collapse = ''),
+                                                    label = 'Rarefaction Depth (Ranked Low to High)',
+                                                    min = 1,
+                                                    max = min(min_samples),
+                                                    step = 1,
+                                                    value = input[[paste(experimental_designs$names[[i]], '_sample_depth_slider', sep='', collapse = '')]]),
+                                        sliderInput(inputId = paste(experimental_designs$names[[i]], '_filter_slider', sep='', collapse=''),
+                                                    label = 'Filtering Threshold (Quantile)',
+                                                    min = 0,
+                                                    max = 100,
+                                                    step = 1,
+                                                    value = input[[paste(experimental_designs$names[[i]], '_filter_slider', sep='', collapse='')]]),
+                                        sliderInput(inputId = paste(experimental_designs$names[[i]], '_pval', sep='', collapse=''),
+                                                    label = 'P-Value for Significance',
+                                                    min = 0.01,
+                                                    max = 0.2,
+                                                    step = 0.01,
+                                                    value = input[[paste(experimental_designs$names[[i]], '_pval', sep='', collapse='')]]),
+                                        checkboxGroupInput(inputId = paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse=''),
+                                                           label = 'Features to Include in This Experiment',
+                                                           choices = experimental_designs$experiments[[i]][['active_features']],
+                                                           selected = input[[paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse='')]]),
+                                        selectInput(inputId = paste(experimental_designs$names[[i]], '_random_effect_select', sep='', collapse=''),
+                                                    label = 'Random Effect for This Experiment',
+                                                    choices = c('None', input[[paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse='')]][
+                                                        input[[paste(experimental_designs$names[[i]], '_feature_select', sep='', collapse='')]] !=
+                                                            input[[paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse='')]]
+                                                        ]),
+                                                    selected = input[[paste(experimental_designs$names[[i]], '_random_effect_select', sep='', collapse='')]])
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    experimental_designs$taglist <- exp_list
+                    output$experimental_design_boxes <- renderUI({
+                        exp_list
+                    })
+                })
+            }
+        })
+        res
+    })
+    
+    
+    # Add an experiment button
+    observeEvent(input$experimental_design_add, {
+        # Default experiment object
+        def_experiment <- list(name='',
+                               analysis_type='ZIG Regression',
+                               filter_threshold=15,
+                               normalization='Cumulative Sum Scaling',
+                               sample_depth=1,
+                               primary_feature=active_metadata_fields$data[1],
+                               active_features=active_metadata_fields$data,
+                               selected_features=active_metadata_fields$data,
+                               random_effect='None',
+                               pval=0.1,
+                               tophits=100)
+        
+        min_samples <- c()
+        isolate({
+            if(!is.null(metadata()))  {
+                min_samples <- c(min_samples, nrow(metadata()))
+            }
+            if(!is.null(amr_counts())) {
+                min_samples <- c(min_samples, ncol(amr_counts()))
+            }
+            if(!is.null(microbiome_data())) {
+                min_samples <- c(min_samples, ncol(microbiome_data()))
+            }
+        })
+        
+        experimental_designs$names[[length(experimental_designs$names) + 1]] <- paste('exp_',
+                                                                                      length(experimental_designs$names) + 1,
+                                                                                      sep='', collapse='')
+        experimental_designs$experiments[[length(experimental_designs$experiments) + 1]] <- def_experiment
+        experimental_designs$activity[[length(experimental_designs$activity) + 1]] <- TRUE
+        
+        exp_list <- experimental_designs$taglist
+        i <- length(experimental_designs$taglist) + 1
+        exp_list[[i]] <- tagList(
+            box(
+                splitLayout(cellWidths = c('50%', '50%'),
+                            textInput(inputId = paste(experimental_designs$names[[i]], '_name', sep='', collapse=''),
+                                      label = 'Experiment Name',
+                                      value = paste('Experiment ', i, sep='', collapse='')),
+                            actionButton(inputId = paste(experimental_designs$names[[i]], '_delete', sep='', collapse=''),
+                                         label = 'Remove Experiment',
+                                         width = '70%')
+                ),
+                selectInput(inputId = paste(experimental_designs$names[[i]], '_feature_select', sep='', collapse=''),
+                            label = 'Select a Primary Feature',
+                            choices = experimental_designs$experiments[[i]][['active_features']],
+                            selected = experimental_designs$experiments[[i]][['primary_feature']]),
+                selectInput(inputId = paste(experimental_designs$names[[i]], '_analysis_select', sep='', collapse=''),
+                            label = 'Select Regression Type',
+                            choices = c('ZIG Regression', 'Elastic Net Regression'),
+                            selected = experimental_designs$experiments[[i]][['analysis_type']]),
+                selectInput(inputId = paste(experimental_designs$names[[i]], '_normalization_select', sep='', collapse=''),
+                            label = 'Select Normalization Method',
+                            choices = c('Cumulative Sum Scaling', 'Rarefaction'),
+                            selected = experimental_designs$experiments[[i]][['normalization']]),
+                sliderInput(inputId = paste(experimental_designs$names[[i]], '_sample_depth_slider', sep='', collapse = ''),
+                            label = 'Rarefaction Depth (Ranked Low to High)',
+                            min = 1,
+                            max = min(min_samples),
+                            step = 1,
+                            value = experimental_designs$experiments[[i]][['sample_depth']]),
+                sliderInput(inputId = paste(experimental_designs$names[[i]], '_filter_slider', sep='', collapse=''),
+                            label = 'Filtering Threshold (Quantile)',
+                            min = 0,
+                            max = 100,
+                            step = 1,
+                            value = experimental_designs$experiments[[i]][['filter_threshold']]),
+                sliderInput(inputId = paste(experimental_designs$names[[i]], '_pval', sep='', collapse=''),
+                            label = 'P-Value for Significance',
+                            min = 0.01,
+                            max = 0.2,
+                            step = 0.01,
+                            value = experimental_designs$experiments[[i]][['pval']]),
+                checkboxGroupInput(inputId = paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse=''),
+                                   label = 'Features to Include in This Experiment',
+                                   choices = experimental_designs$experiments[[i]][['active_features']],
+                                   selected = experimental_designs$experiments[[i]][['selected_features']]),
+                selectInput(inputId = paste(experimental_designs$names[[i]], '_random_effect_select', sep='', collapse=''),
+                            label = 'Random Effect for This Experiment',
+                            choices = c('None', experimental_designs$experiments[[i]][['active_features']][
+                                experimental_designs$experiments[[i]][['primary_feature']] !=
+                                    experimental_designs$experiments[[i]][['active_features']]
+                                ]),
+                            selected = 'None')
+            )
+        )
+        
+        # Update current values into data structure
+        if(length(experimental_designs$activity) > 1) {
+            for(i in 1:(length(experimental_designs$activity) - 1)) {
+                if(experimental_designs$activity[[i]]) {
+                    exp_list[[i]] <- tagList(
+                        box(
+                            splitLayout(cellWidths = c('50%', '50%'),
+                                        textInput(inputId = paste(experimental_designs$names[[i]], '_name', sep='', collapse=''),
+                                                  label = 'Experiment Name',
+                                                  value = input[[paste(experimental_designs$names[[i]], '_name', sep='', collapse='')]]),
+                                        actionButton(inputId = paste(experimental_designs$names[[i]], '_delete', sep='', collapse=''),
+                                                     label = 'Remove Experiment',
+                                                     width = '70%')
+                            ),
+                            selectInput(inputId = paste(experimental_designs$names[[i]], '_feature_select', sep='', collapse=''),
+                                        label = 'Select a Primary Feature',
+                                        choices = experimental_designs$experiments[[i]][['active_features']],
+                                        selected = input[[paste(experimental_designs$names[[i]], '_feature_select', sep='', collapse='')]]),
+                            selectInput(inputId = paste(experimental_designs$names[[i]], '_analysis_select', sep='', collapse=''),
+                                        label = 'Select Regression Type',
+                                        choices = c('ZIG Regression', 'Elastic Net Regression'),
+                                        selected = input[[paste(experimental_designs$names[[i]], '_analysis_select', sep='', collapse='')]]),
+                            selectInput(inputId = paste(experimental_designs$names[[i]], '_normalization_select', sep='', collapse=''),
+                                        label = 'Select Normalization Method',
+                                        choices = c('Cumulative Sum Scaling', 'Rarefaction'),
+                                        selected = input[[paste(experimental_designs$names[[i]], '_normalization_select', sep='', collapse='')]]),
+                            sliderInput(inputId = paste(experimental_designs$names[[i]], '_sample_depth_slider', sep='', collapse = ''),
+                                        label = 'Rarefaction Depth (Ranked Low to High)',
+                                        min = 1,
+                                        max = min(min_samples),
+                                        step = 1,
+                                        value = input[[paste(experimental_designs$names[[i]], '_sample_depth_slider', sep='', collapse = '')]]),
+                            sliderInput(inputId = paste(experimental_designs$names[[i]], '_filter_slider', sep='', collapse=''),
+                                        label = 'Filtering Threshold (Quantile)',
+                                        min = 0,
+                                        max = 100,
+                                        step = 1,
+                                        value = input[[paste(experimental_designs$names[[i]], '_filter_slider', sep='', collapse='')]]),
+                            sliderInput(inputId = paste(experimental_designs$names[[i]], '_pval', sep='', collapse=''),
+                                        label = 'P-Value for Significance',
+                                        min = 0.01,
+                                        max = 0.2,
+                                        step = 0.01,
+                                        value = input[[paste(experimental_designs$names[[i]], '_pval', sep='', collapse='')]]),
+                            checkboxGroupInput(inputId = paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse=''),
+                                               label = 'Features to Include in This Experiment',
+                                               choices = experimental_designs$experiments[[i]][['active_features']],
+                                               selected = input[[paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse='')]]),
+                            selectInput(inputId = paste(experimental_designs$names[[i]], '_random_effect_select', sep='', collapse=''),
+                                        label = 'Random Effect for This Experiment',
+                                        choices = c('None', input[[paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse='')]][
+                                            input[[paste(experimental_designs$names[[i]], '_feature_select', sep='', collapse='')]] !=
+                                                input[[paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse='')]]
+                                            ]),
+                                        selected = input[[paste(experimental_designs$names[[i]], '_random_effect_select', sep='', collapse='')]])
+                        )
+                    )
+                }
+            }
+        }
+        
+        
+        experimental_designs$taglist <- exp_list
+        output$experimental_design_boxes <- renderUI({
+            exp_list
+        })
+        makeObservers()
+    })
 }
+
+
+
+
+
+
+
+
 
