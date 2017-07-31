@@ -337,38 +337,38 @@ server <- function(input, output, session) {
                         )
                     })
                 }
-                else if(input$exploratory_analysis_type_select == 'Elastic Net Regression') {
-                    output$exploratory_statistical_parameters <- renderUI({
-                        tagList(
-                            sliderInput(inputId = 'exploratory_statistical_pvalue_slider',
-                                        label = 'Minimum P-value Threshold',
-                                        min = 0.01,
-                                        max = 0.2,
-                                        step=0.01,
-                                        value=0.1),
-                            sliderInput(inputId = 'exploratory_statistical_number_slider',
-                                        label = '# Significant Results to Display',
-                                        min = 1,
-                                        max = 100,
-                                        step=1,
-                                        value=20),
-                            selectInput(inputId = 'exploratory_statistical_sortby_select',
-                                        label = 'Sort Results by Field',
-                                        choices = c('P-value', 'Effect Size', 'Abundance', 'T-statistic')),
-                            checkboxGroupInput(inputId = 'exploratory_statistical_feature_checkboxes',
-                                               label = 'Fixed Effects to Include in Regression',
-                                               choices = active_metadata_fields$data,
-                                               selected = active_metadata_fields$data),
-                            selectInput(inputId = 'exploratory_statistical_random_effect_select',
-                                        label = 'Random Effect to Include in Regression',
-                                        choices = c('None', active_metadata_fields$data[!(active_metadata_fields$data %in% 
-                                                                                              input$exploratory_feature_select) &&
-                                                                                            !(active_metadata_fields$data %in% 
-                                                                                                  input$exploratory_statistical_feature_checkboxes)]),
-                                        selected='None')
-                        )
-                    })
-                }
+                # else if(input$exploratory_analysis_type_select == 'Elastic Net Regression') {
+                #     output$exploratory_statistical_parameters <- renderUI({
+                #         tagList(
+                #             sliderInput(inputId = 'exploratory_statistical_pvalue_slider',
+                #                         label = 'Minimum P-value Threshold',
+                #                         min = 0.01,
+                #                         max = 0.2,
+                #                         step=0.01,
+                #                         value=0.1),
+                #             sliderInput(inputId = 'exploratory_statistical_number_slider',
+                #                         label = '# Significant Results to Display',
+                #                         min = 1,
+                #                         max = 100,
+                #                         step=1,
+                #                         value=20),
+                #             selectInput(inputId = 'exploratory_statistical_sortby_select',
+                #                         label = 'Sort Results by Field',
+                #                         choices = c('P-value', 'Effect Size', 'Abundance', 'T-statistic')),
+                #             checkboxGroupInput(inputId = 'exploratory_statistical_feature_checkboxes',
+                #                                label = 'Fixed Effects to Include in Regression',
+                #                                choices = active_metadata_fields$data,
+                #                                selected = active_metadata_fields$data),
+                #             selectInput(inputId = 'exploratory_statistical_random_effect_select',
+                #                         label = 'Random Effect to Include in Regression',
+                #                         choices = c('None', active_metadata_fields$data[!(active_metadata_fields$data %in% 
+                #                                                                               input$exploratory_feature_select) &&
+                #                                                                             !(active_metadata_fields$data %in% 
+                #                                                                                   input$exploratory_statistical_feature_checkboxes)]),
+                #                         selected='None')
+                #         )
+                #     })
+                # }
             }
             else {
                 output$exploratory_statistical_parameters <- renderUI({
@@ -578,7 +578,7 @@ server <- function(input, output, session) {
                                                     selected = input[[paste(experimental_designs$names[[i]], '_feature_select', sep='', collapse='')]]),
                                         selectInput(inputId = paste(experimental_designs$names[[i]], '_analysis_select', sep='', collapse=''),
                                                     label = 'Select Regression Type',
-                                                    choices = c('ZIG Regression', 'Elastic Net Regression'),
+                                                    choices = c('ZIG Regression'),
                                                     selected = input[[paste(experimental_designs$names[[i]], '_analysis_select', sep='', collapse='')]]),
                                         selectInput(inputId = paste(experimental_designs$names[[i]], '_normalization_select', sep='', collapse=''),
                                                     label = 'Select Normalization Method',
@@ -681,7 +681,7 @@ server <- function(input, output, session) {
                             selected = experimental_designs$experiments[[i]][['primary_feature']]),
                 selectInput(inputId = paste(experimental_designs$names[[i]], '_analysis_select', sep='', collapse=''),
                             label = 'Select Regression Type',
-                            choices = c('ZIG Regression', 'Elastic Net Regression'),
+                            choices = c('ZIG Regression'),
                             selected = experimental_designs$experiments[[i]][['analysis_type']]),
                 selectInput(inputId = paste(experimental_designs$names[[i]], '_normalization_select', sep='', collapse=''),
                             label = 'Select Normalization Method',
@@ -739,7 +739,7 @@ server <- function(input, output, session) {
                                         selected = input[[paste(experimental_designs$names[[i]], '_feature_select', sep='', collapse='')]]),
                             selectInput(inputId = paste(experimental_designs$names[[i]], '_analysis_select', sep='', collapse=''),
                                         label = 'Select Regression Type',
-                                        choices = c('ZIG Regression', 'Elastic Net Regression'),
+                                        choices = c('ZIG Regression'),
                                         selected = input[[paste(experimental_designs$names[[i]], '_analysis_select', sep='', collapse='')]]),
                             selectInput(inputId = paste(experimental_designs$names[[i]], '_normalization_select', sep='', collapse=''),
                                         label = 'Select Normalization Method',
@@ -786,6 +786,26 @@ server <- function(input, output, session) {
             exp_list
         })
         makeObservers()
+    })
+    
+    observeEvent(input$experimental_design_run, {
+        temp_dir <- tempdir()
+        
+        data_present <- c()
+        if(!is.null(microbiome_data())) {
+            data_present <- c(data_present, 'Microbiome')
+        }
+        if(!is.null(amr_counts()) && !is.null(amr_annotations())) {
+            data_present <- c(data_present, 'Resistome')
+        }
+        
+        create_output_directories(temp_dir=temp_dir,
+                                  project_name=input$project_name,
+                                  data_types=data_present)
+        
+        output$experimental_design_run_output <- renderText({
+            print('Output to go here...')
+        })
     })
 }
 

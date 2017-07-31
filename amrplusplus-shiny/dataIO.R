@@ -86,3 +86,46 @@ load_metadata <- function(metadata_filepath) {
     )
     return(out)
 }
+
+
+create_output_directories <- function(temp_dir,
+                                       project_name,
+                                       data_types) {
+    ifelse(!dir.exists(file.path(temp_dir, project_name)),
+           dir.create(file.path(temp_dir, project_name)), FALSE)
+    
+    project_temp_dir <- paste(temp_dir, project_name, sep='/')
+    
+    ifelse(!dir.exists(file.path(project_temp_dir, 'Statistics')),
+           dir.create(file.path(project_temp_dir, 'Statistics')), FALSE)
+    
+    ifelse(!dir.exists(file.path(project_temp_dir, 'Graphs')),
+           dir.create(file.path(project_temp_dir, 'Graphs')), FALSE)
+    
+    ifelse(!dir.exists(file.path(project_temp_dir, 'Matrices')),
+           dir.create(file.path(project_temp_dir, 'Matrices')), FALSE)
+    
+    stats_dir <- paste(project_temp_dir, 'Statistics', sep='/')
+    graph_dir <- paste(project_temp_dir, 'Graphs', sep='/')
+    mat_dir <- paste(project_temp_dir, 'Matrices', sep='/')
+    
+    if('Microbiome' %in% data_types) {
+        ifelse(!dir.exists(file.path(stats_dir, 'Microbiome')),
+               dir.create(file.path(stats_dir, 'Microbiome')), FALSE)
+        ifelse(!dir.exists(file.path(graph_dir, 'Microbiome')),
+               dir.create(file.path(graph_dir, 'Microbiome')), FALSE)
+        ifelse(!dir.exists(file.path(mat_dir, 'Microbiome')),
+               dir.create(file.path(mat_dir, 'Microbiome')), FALSE)
+    }
+    if('Resistome' %in% data_types) {
+        ifelse(!dir.exists(file.path(stats_dir, 'Resistome')),
+               dir.create(file.path(stats_dir, 'Resistome')), FALSE)
+        ifelse(!dir.exists(file.path(graph_dir, 'Resistome')),
+               dir.create(file.path(graph_dir, 'Resistome')), FALSE)
+        ifelse(!dir.exists(file.path(mat_dir, 'Resistome')),
+               dir.create(file.path(mat_dir, 'Resistome')), FALSE)
+    }
+    
+    
+}
+
