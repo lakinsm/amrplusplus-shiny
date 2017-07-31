@@ -199,24 +199,24 @@ generate_statistical_preview <- function(data,
         
         # Aggregation and data set creation
         analytic_list <- aggregate_and_filter(microbiome_data_list, data.table(metadata))
-    }
-    
-    # Regression
-    if(analysis_type == 'ZIG Regression') {
-        out_dt <- exploratory_zero_inflated_gaussian_regression(analytic_MRexp=analytic_list[[6]][[microbiome_lookup[annotation_level]]],
-                                                                metadata=analytic_list[[11]],
-                                                                annotation_level=annotation_level,
-                                                                metadata_feature=metadata_feature,
-                                                                zero_mod=model.matrix(~1 + log(libSize(data[[1]]))),
-                                                                data_mod=model_string,
-                                                                random_effect_var=random_effect,
-                                                                data_type=data_type,
-                                                                pval=pval_threshold,
-                                                                top_hits=num_tophits,
-                                                                sort_by=sort_by)
-    }
-    else if(analysis_type == 'Elastic Net Regression') {
         
+        # Regression
+        if(analysis_type == 'ZIG Regression') {
+            out_dt <- exploratory_zero_inflated_gaussian_regression(analytic_MRexp=analytic_list[[6]][[microbiome_lookup[annotation_level]]],
+                                                                    metadata=analytic_list[[11]],
+                                                                    annotation_level=annotation_level,
+                                                                    metadata_feature=metadata_feature,
+                                                                    zero_mod=model.matrix(~1 + log(libSize(data[[1]]))),
+                                                                    data_mod=model_string,
+                                                                    random_effect_var=random_effect,
+                                                                    data_type=data_type,
+                                                                    pval=pval_threshold,
+                                                                    top_hits=num_tophits,
+                                                                    sort_by=sort_by)
+        }
+        else if(analysis_type == 'Elastic Net Regression') {
+            
+        }
     }
 }
 
