@@ -158,4 +158,3 @@ create_output_directories <- function(temp_dir,
     }
     return(project_temp_dir)
 }
-

@@ -337,6 +337,38 @@ server <- function(input, output, session) {
                         )
                     })
                 }
+                else if(input$exploratory_analysis_type_select == 'Elastic Net Regression') {
+                    output$exploratory_statistical_parameters <- renderUI({
+                        tagList(
+                            sliderInput(inputId = 'exploratory_statistical_pvalue_slider',
+                                        label = 'Minimum P-value Threshold',
+                                        min = 0.01,
+                                        max = 0.2,
+                                        step=0.01,
+                                        value=0.1),
+                            sliderInput(inputId = 'exploratory_statistical_number_slider',
+                                        label = '# Significant Results to Display',
+                                        min = 1,
+                                        max = 100,
+                                        step=1,
+                                        value=20),
+                            selectInput(inputId = 'exploratory_statistical_sortby_select',
+                                        label = 'Sort Results by Field',
+                                        choices = c('P-value', 'Effect Size', 'Abundance', 'T-statistic')),
+                            checkboxGroupInput(inputId = 'exploratory_statistical_feature_checkboxes',
+                                               label = 'Fixed Effects to Include in Regression',
+                                               choices = active_metadata_fields$data,
+                                               selected = active_metadata_fields$data),
+                            selectInput(inputId = 'exploratory_statistical_random_effect_select',
+                                        label = 'Random Effect to Include in Regression',
+                                        choices = c('None', active_metadata_fields$data[!(active_metadata_fields$data %in% 
+                                                                                              input$exploratory_feature_select) &&
+                                                                                            !(active_metadata_fields$data %in% 
+                                                                                                  input$exploratory_statistical_feature_checkboxes)]),
+                                        selected='None')
+                        )
+                    })
+                }
             }
             else {
                 output$exploratory_statistical_parameters <- renderUI({
@@ -372,11 +404,15 @@ server <- function(input, output, session) {
                     subset_string <- c(subset_string, combined_str)
                 }
             }
+            print('check1')
+            
             
             sample_depth <- 0
             if(input$normalization_select == 'Rarefaction') {
                 sample_depth <- as.numeric(input$rarefaction_slider)
             }
+            
+            print('check2')
             
             filtering_value <- as.numeric(input$filtering_slider) / 100
             
@@ -479,7 +515,7 @@ server <- function(input, output, session) {
             }
         })
     })
-    
+
     # Reactive data structure for storing experimental designs
     experimental_designs <- reactiveValues(names=list(),
                                            experiments=list(),
@@ -1045,12 +1081,4 @@ server <- function(input, output, session) {
         })
     })
 }
-
-
-
-
-
-
-
-
 

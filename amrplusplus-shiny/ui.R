@@ -6,8 +6,9 @@ ui <- dashboardPage(
             menuItem('2. Format Metadata', tabName = 'format_metadata', icon = icon('th')),
             menuItem('3. Data Exploration', tabName = 'data_exploration', icon = icon('cog')),
             menuItem('4. Experimental Designs', tabName = 'experimental_designs', icon = icon('dashboard')),
-            menuItem('5. PERMANOVA', tabName = 'permanova', icon = icon('bar-chart')),
-            menuItem('6. Procrustes', tabName = 'procrustes', icon = icon('bar-chart'))
+            menuItem('5. Regression', tabName = 'run_analyses', icon = icon('bar-chart')),
+            menuItem('6. PERMANOVA', tabName = 'permanova', icon = icon('bar-chart')),
+            menuItem('7. Procrustes', tabName = 'procrustes', icon = icon('bar-chart'))
         )
     ),
     dashboardBody(
@@ -198,7 +199,8 @@ ui <- dashboardPage(
                                                     'PCA',
                                                     'Bar Graph',
                                                     'Heatmap',
-                                                    'ZIG Regression'),
+                                                    'ZIG Regression',
+                                                    'Elastic Net Regression'),
                                         selected='PCA'),
                             selectInput(inputId = 'exploratory_feature_select',
                                         label = 'Metadata Feature',
