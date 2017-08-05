@@ -337,38 +337,6 @@ server <- function(input, output, session) {
                         )
                     })
                 }
-                # else if(input$exploratory_analysis_type_select == 'Elastic Net Regression') {
-                #     output$exploratory_statistical_parameters <- renderUI({
-                #         tagList(
-                #             sliderInput(inputId = 'exploratory_statistical_pvalue_slider',
-                #                         label = 'Minimum P-value Threshold',
-                #                         min = 0.01,
-                #                         max = 0.2,
-                #                         step=0.01,
-                #                         value=0.1),
-                #             sliderInput(inputId = 'exploratory_statistical_number_slider',
-                #                         label = '# Significant Results to Display',
-                #                         min = 1,
-                #                         max = 100,
-                #                         step=1,
-                #                         value=20),
-                #             selectInput(inputId = 'exploratory_statistical_sortby_select',
-                #                         label = 'Sort Results by Field',
-                #                         choices = c('P-value', 'Effect Size', 'Abundance', 'T-statistic')),
-                #             checkboxGroupInput(inputId = 'exploratory_statistical_feature_checkboxes',
-                #                                label = 'Fixed Effects to Include in Regression',
-                #                                choices = active_metadata_fields$data,
-                #                                selected = active_metadata_fields$data),
-                #             selectInput(inputId = 'exploratory_statistical_random_effect_select',
-                #                         label = 'Random Effect to Include in Regression',
-                #                         choices = c('None', active_metadata_fields$data[!(active_metadata_fields$data %in% 
-                #                                                                               input$exploratory_feature_select) &&
-                #                                                                             !(active_metadata_fields$data %in% 
-                #                                                                                   input$exploratory_statistical_feature_checkboxes)]),
-                #                         selected='None')
-                #         )
-                #     })
-                # }
             }
             else {
                 output$exploratory_statistical_parameters <- renderUI({
@@ -460,8 +428,7 @@ server <- function(input, output, session) {
                     covars <- covars[c(primary_effect_idx, other_idx)]
                     covars <- c('~ 0', covars)
                     covar_str <- paste(covars, sep='', collapse=' + ')
-                    print(covar_str)
-                    
+
                     rand_effect <- NA
                     if(input$exploratory_statistical_random_effect_select != 'None') {
                         rand_effect <- input$exploratory_statistical_random_effect_select
@@ -788,6 +755,41 @@ server <- function(input, output, session) {
         makeObservers()
     })
     
+    # Observer for rarefaction as a choice in experimental design exploratory parameters
+    observe({
+        x <- input$experimental_design_exploratory_norm_select
+        if(x == 'Rarefaction') {
+            min_samples <- c()
+            isolate({
+                if(!is.null(metadata()))  {
+                    min_samples <- c(min_samples, nrow(metadata()))
+                }
+                if(!is.null(amr_counts())) {
+                    min_samples <- c(min_samples, ncol(amr_counts()))
+                }
+                if(!is.null(microbiome_data())) {
+                    min_samples <- c(min_samples, ncol(microbiome_data()))
+                }
+            })
+            if(length(min_samples) > 0) {
+                output$experimental_design_exploratory_sample_threshold <- renderUI({
+                    sliderInput(inputId = 'experimental_design_exploratory_rarefaction_slider',
+                                label = 'Rarefy to Ranked Sample # (lowest to highest):',
+                                min = 1,
+                                max = min(min_samples),
+                                step = 1,
+                                value = 1)
+                })
+            }
+        }
+        else if(x == 'Cumulative Sum Scaling') {
+            output$experimental_design_exploratory_sample_threshold <- renderUI({
+                character(0)
+            })
+        }
+    })
+    
+    # Run analyses button
     observeEvent(input$experimental_design_run, {
         temp_dir <- tempdir()
         
@@ -799,12 +801,247 @@ server <- function(input, output, session) {
             data_present <- c(data_present, 'Resistome')
         }
         
-        create_output_directories(temp_dir=temp_dir,
-                                  project_name=input$project_name,
-                                  data_types=data_present)
-        
-        output$experimental_design_run_output <- renderText({
-            print('Output to go here...')
+        isolate({
+            # Generate output directories
+            output_prefix <- create_output_directories(temp_dir=temp_dir,
+                                                       project_name=input$project_name,
+                                                       data_types=data_present,
+                                                       active_features=active_metadata_fields$data,
+                                                       experiment_names=experimental_designs$names,
+                                                       experiment_activity=experimental_designs$activity)
+            
+            filter_quantile <- input$experimental_design_exploratory_filter_slider / 100
+            if('Resistome' %in% data_present) {
+                withProgress(message = 'Running Resistome Analyses: ', value = 0, {
+                    n <- (length(active_metadata_fields$data) * 4) + sum(unlist(experimental_designs$activity)) + 1
+                    incProgress(amount = 1/n, detail = 'Normalization and Aggregation')
+                    if(input$experimental_design_exploratory_norm_select == 'Rarefaction') {
+                        amr_data_list <- rarefy_normalize_and_extract(sampling_depth=input$experimental_design_exploratory_rarefaction_slider,
+                                                                      filtering_quantile=filter_quantile,
+                                                                      amr_MRexp=amr_counts())
+                        amr_data_list[[7]] <- amr_annotations()
+                    }
+                    else if(input$experimental_design_exploratory_norm_select == 'Cumulative Sum Scaling') {
+                        amr_data_list <- CSS_normalize_and_extract(filtering_quantile=filter_quantile,
+                                                                   amr_MRexp=amr_counts())
+                        amr_data_list[[7]] <- amr_annotations()
+                    }
+                    
+                    # Aggregation and data set creation
+                    analytic_list <- aggregate_and_filter(amr_data_list, data.table(metadata_updated$data))
+                    
+                    # Exploratory analyses
+                    for(i in 1:length(active_metadata_fields$data)) {
+                        # Ordination
+                        incProgress(amount = 1/n,
+                                    detail = paste('Ordination', active_metadata_fields$data[[i]], sep=' '))
+                        ordination_workflow(experiment_data_lists=analytic_list,
+                                            sample_column_id=colnames(metadata_updated$data)[1],
+                                            feature_name=active_metadata_fields$data[[i]],
+                                            graph_output_dir=paste(output_prefix, 'Graphs', sep='/'),
+                                            data_type='Resistome')
+                        # Barplot
+                        incProgress(amount = 1/n,
+                                    detail = paste('Barplots', active_metadata_fields$data[[i]], sep=' '))
+                        barplot_workflow(experiment_data_lists=analytic_list,
+                                         sample_column_id=colnames(metadata_updated$data)[1],
+                                         feature_name=active_metadata_fields$data[[i]],
+                                         graph_output_dir=paste(output_prefix, 'Graphs', sep='/'),
+                                         data_type='Resistome')
+                        # Heatmap
+                        incProgress(amount = 1/n,
+                                    detail = paste('Heatmaps', active_metadata_fields$data[[i]], sep=' '))
+                        heatmap_workflow(experiment_data_lists=analytic_list,
+                                         sample_column_id=colnames(metadata_updated$data)[1],
+                                         feature_name=active_metadata_fields$data[[i]],
+                                         graph_output_dir=paste(output_prefix, 'Graphs', sep='/'),
+                                         data_type='Resistome')
+                        # Alpha rarefaction
+                        incProgress(amount = 1/n,
+                                    detail = paste('Alpha Rarefaction', active_metadata_fields$data[[i]], sep=' '))
+                        alpha_rarefaction_workflow(experiment_data_lists=analytic_list,
+                                                   sample_column_id=colnames(metadata_updated$data)[1],
+                                                   feature_name=active_metadata_fields$data[[i]],
+                                                   graph_output_dir=paste(output_prefix, 'Graphs', sep='/'),
+                                                   data_type='Resistome')
+                    }
+                    
+                    # Statistical analyses
+                    if(length(experimental_designs$activity) > 0) {
+                        for(i in 1:length(experimental_designs$activity)) {
+                            if(experimental_designs$activity[[i]]) {
+                                # Regression
+                                exp_name <- input[[paste(experimental_designs$names[[i]], '_name', sep='', collapse='')]]
+                                analysis_type <- input[[paste(experimental_designs$names[[i]], '_analysis_select', sep='', collapse='')]]
+                                feature <- input[[paste(experimental_designs$names[[i]], '_feature_select', sep='', collapse='')]]
+                                filtering_value <- input[[paste(experimental_designs$names[[i]], '_filter_slider', sep='', collapse='')]] / 100
+                                norm_method <- input[[paste(experimental_designs$names[[i]], '_normalization_select', sep='', collapse='')]]
+                                sample_depth <- input[[paste(experimental_designs$names[[i]], '_sample_depth_slider', sep='', collapse = '')]]
+                                subset_string <- c()
+                                checkboxes <- input[[paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse='')]]
+                                rand_select <- input[[paste(experimental_designs$names[[i]], '_random_effect_select', sep='', collapse='')]]
+                                
+                                covars <- checkboxes[!(checkboxes %in% rand_select)]
+                                primary_effect_idx <- which(covars == feature)
+                                other_idx <- which(1:length(covars) != primary_effect_idx)
+                                covars <- covars[c(primary_effect_idx, other_idx)]
+                                covars <- c('~ 0', covars)
+                                covar_str <- paste(covars, sep='', collapse=' + ')
+                                
+                                rand_effect <- NA
+                                if(rand_select != 'None') {
+                                    rand_effect <- rand_select
+                                }
+                                
+                                pval_threshold <- as.numeric(input[[paste(experimental_designs$names[[i]], '_pval', sep='', collapse='')]])
+                                
+                                incProgress(amount = 1/n,
+                                            detail = paste('Regression', experimental_designs$names[[i]], sep=' '))
+                                for(l in names(amr_lookup)) {
+                                    dt <- generate_statistical_output(data=list(amr_counts(), amr_annotations()),
+                                                                      data_type='Resistome',
+                                                                      metadata=metadata_updated$data,
+                                                                      annotation_level=l,
+                                                                      analysis_type=analysis_type,
+                                                                      metadata_feature=feature,
+                                                                      low_pass_filter_threshold=filtering_value,
+                                                                      norm_method=norm_method,
+                                                                      sample_depth=sample_depth,
+                                                                      subset_strings=subset_string,
+                                                                      model_string=covar_str,
+                                                                      random_effect=rand_effect,
+                                                                      pval_threshold=pval_threshold,
+                                                                      num_tophits=9000,
+                                                                      sort_by='P-value')
+                                    if(nrow(dt) > 0) {
+                                        fname <- paste(gsub(' ', '_', exp_name), l, gsub(' ', '_', analysis_type), sep='_')
+                                        write.csv(dt, file=paste(paste(output_prefix, 'Statistics', 'Resistome',
+                                                                       experimental_designs$names[[i]],
+                                                                       fname, sep='/'), '.csv', sep='', collapse=''))
+                                    }
+                                }
+                                
+                            }
+                        }
+                    }
+                })
+            }
+            if('Microbiome' %in% data_present) {
+                withProgress(message = 'Running Microbiome Analyses: ', value = 0, {
+                    n <- (length(active_metadata_fields$data) * 4) + sum(unlist(experimental_designs$activity)) + 1
+                    incProgress(amount = 1/n, detail = 'Normalization and Aggregation')
+                    # Normalization
+                    if(input$experimental_design_exploratory_norm_select == 'Rarefaction') {
+                        microbiome_data_list <- rarefy_normalize_and_extract(sampling_depth=input$experimental_design_exploratory_rarefaction_slider,
+                                                                             filtering_quantile=filter_quantile,
+                                                                             kraken_MRexp=microbiome_data())
+                        microbiome_data_list[[7]] <- NA
+                    }
+                    else if(input$experimental_design_exploratory_norm_select == 'Cumulative Sum Scaling') {
+                        microbiome_data_list <- CSS_normalize_and_extract(filtering_quantile=filter_quantile,
+                                                                          kraken_MRexp=microbiome_data())
+                        microbiome_data_list[[7]] <- NA
+                    }
+                    
+                    # Aggregation and data set creation
+                    analytic_list <- aggregate_and_filter(microbiome_data_list, data.table(metadata_updated$data))
+                    
+                    # Exploratory analyses
+                    for(i in 1:length(active_metadata_fields$data)) {
+                        # Ordination
+                        incProgress(amount = 1/n,
+                                    detail = paste('Ordination', active_metadata_fields$data[[i]], sep=' '))
+                        ordination_workflow(experiment_data_lists=analytic_list,
+                                            sample_column_id=colnames(metadata_updated$data)[1],
+                                            feature_name=active_metadata_fields$data[[i]],
+                                            graph_output_dir=paste(output_prefix, 'Graphs', sep='/'),
+                                            data_type='Microbiome')
+                        # Barplot
+                        incProgress(amount = 1/n,
+                                    detail = paste('Barplots', active_metadata_fields$data[[i]], sep=' '))
+                        barplot_workflow(experiment_data_lists=analytic_list,
+                                         sample_column_id=colnames(metadata_updated$data)[1],
+                                         feature_name=active_metadata_fields$data[[i]],
+                                         graph_output_dir=paste(output_prefix, 'Graphs', sep='/'),
+                                         data_type='Microbiome')
+                        # Heatmap
+                        incProgress(amount = 1/n,
+                                    detail = paste('Heatmaps', active_metadata_fields$data[[i]], sep=' '))
+                        heatmap_workflow(experiment_data_lists=analytic_list,
+                                         sample_column_id=colnames(metadata_updated$data)[1],
+                                         feature_name=active_metadata_fields$data[[i]],
+                                         graph_output_dir=paste(output_prefix, 'Graphs', sep='/'),
+                                         data_type='Microbiome')
+                        # Alpha rarefaction
+                        incProgress(amount = 1/n,
+                                    detail = paste('Alpha Rarefaction', active_metadata_fields$data[[i]], sep=' '))
+                        alpha_rarefaction_workflow(experiment_data_lists=analytic_list,
+                                                   sample_column_id=colnames(metadata_updated$data)[1],
+                                                   feature_name=active_metadata_fields$data[[i]],
+                                                   graph_output_dir=paste(output_prefix, 'Graphs', sep='/'),
+                                                   data_type='Microbiome')
+                    }
+                    
+                    # Statistical analyses
+                    if(length(experimental_designs$activity) > 0) {
+                        for(i in 1:length(experimental_designs$activity)) {
+                            if(experimental_designs$activity[[i]]) {
+                                # Regression
+                                exp_name <- input[[paste(experimental_designs$names[[i]], '_name', sep='', collapse='')]]
+                                analysis_type <- input[[paste(experimental_designs$names[[i]], '_analysis_select', sep='', collapse='')]]
+                                feature <- input[[paste(experimental_designs$names[[i]], '_feature_select', sep='', collapse='')]]
+                                filtering_value <- input[[paste(experimental_designs$names[[i]], '_filter_slider', sep='', collapse='')]] / 100
+                                norm_method <- input[[paste(experimental_designs$names[[i]], '_normalization_select', sep='', collapse='')]]
+                                sample_depth <- input[[paste(experimental_designs$names[[i]], '_sample_depth_slider', sep='', collapse = '')]]
+                                subset_string <- c()
+                                checkboxes <- input[[paste(experimental_designs$names[[i]], '_selected_features_boxes', sep='', collapse='')]]
+                                rand_select <- input[[paste(experimental_designs$names[[i]], '_random_effect_select', sep='', collapse='')]]
+                                
+                                covars <- checkboxes[!(checkboxes %in% rand_select)]
+                                primary_effect_idx <- which(covars == feature)
+                                other_idx <- which(1:length(covars) != primary_effect_idx)
+                                covars <- covars[c(primary_effect_idx, other_idx)]
+                                covars <- c('~ 0', covars)
+                                covar_str <- paste(covars, sep='', collapse=' + ')
+
+                                rand_effect <- NA
+                                if(rand_select != 'None') {
+                                    rand_effect <- rand_select
+                                }
+                                
+                                pval_threshold <- as.numeric(input[[paste(experimental_designs$names[[i]], '_pval', sep='', collapse='')]])
+                                
+                                incProgress(amount = 1/n,
+                                            detail = paste('Regression', experimental_designs$names[[i]], sep=' '))
+                                for(l in names(microbiome_lookup)) {
+                                    dt <- generate_statistical_output(data=list(microbiome_data()),
+                                                                      data_type='Microbiome',
+                                                                      metadata=metadata_updated$data,
+                                                                      annotation_level=l,
+                                                                      analysis_type=analysis_type,
+                                                                      metadata_feature=feature,
+                                                                      low_pass_filter_threshold=filtering_value,
+                                                                      norm_method=norm_method,
+                                                                      sample_depth=sample_depth,
+                                                                      subset_strings=subset_string,
+                                                                      model_string=covar_str,
+                                                                      random_effect=rand_effect,
+                                                                      pval_threshold=pval_threshold,
+                                                                      num_tophits=9000,
+                                                                      sort_by='P-value')
+                                    if(nrow(dt) > 0) {
+                                        fname <- paste(gsub(' ', '_', exp_name), l, gsub(' ', '_', analysis_type), sep='_')
+                                        write.csv(dt, file=paste(paste(output_prefix, 'Statistics', 'Microbiome',
+                                                                       experimental_designs$names[[i]],
+                                                                       fname, sep='/'), '.csv', sep='', collapse=''))
+                                    }
+                                }
+                                
+                            }
+                        }
+                    }
+                })
+            }
         })
     })
 }

@@ -89,8 +89,11 @@ load_metadata <- function(metadata_filepath) {
 
 
 create_output_directories <- function(temp_dir,
-                                       project_name,
-                                       data_types) {
+                                      project_name,
+                                      data_types,
+                                      active_features,
+                                      experiment_names,
+                                      experiment_activity) {
     ifelse(!dir.exists(file.path(temp_dir, project_name)),
            dir.create(file.path(temp_dir, project_name)), FALSE)
     
@@ -116,6 +119,20 @@ create_output_directories <- function(temp_dir,
                dir.create(file.path(graph_dir, 'Microbiome')), FALSE)
         ifelse(!dir.exists(file.path(mat_dir, 'Microbiome')),
                dir.create(file.path(mat_dir, 'Microbiome')), FALSE)
+        graph_microbiome_dir <- paste(graph_dir, 'Microbiome', sep='/')
+        for(f in active_features) {
+            ifelse(!dir.exists(file.path(graph_microbiome_dir, f)),
+                   dir.create(file.path(graph_microbiome_dir, f)), FALSE)
+        }
+        stats_microbiome_dir <- paste(stats_dir, 'Microbiome', sep='/')
+        if(length(experiment_names) > 0) {
+            for(i in 1:length(experiment_names)) {
+                if(experiment_activity[[i]]) {
+                    ifelse(!dir.exists(file.path(stats_microbiome_dir, experiment_names[[i]])),
+                           dir.create(file.path(stats_microbiome_dir, experiment_names[[i]])), FALSE)
+                }
+            }
+        }
     }
     if('Resistome' %in% data_types) {
         ifelse(!dir.exists(file.path(stats_dir, 'Resistome')),
@@ -124,8 +141,21 @@ create_output_directories <- function(temp_dir,
                dir.create(file.path(graph_dir, 'Resistome')), FALSE)
         ifelse(!dir.exists(file.path(mat_dir, 'Resistome')),
                dir.create(file.path(mat_dir, 'Resistome')), FALSE)
+        graph_resistome_dir <- paste(graph_dir, 'Resistome', sep='/')
+        for(f in active_features) {
+            ifelse(!dir.exists(file.path(graph_resistome_dir, f)),
+                   dir.create(file.path(graph_resistome_dir, f)), FALSE)
+        }
+        stats_resistome_dir <- paste(stats_dir, 'Resistome', sep='/')
+        if(length(experiment_names) > 0) {
+            for(i in 1:length(experiment_names)) {
+                if(experiment_activity[[i]]) {
+                    ifelse(!dir.exists(file.path(stats_resistome_dir, experiment_names[[i]])),
+                           dir.create(file.path(stats_resistome_dir, experiment_names[[i]])), FALSE)
+                }
+            }
+        }
     }
-    
-    
+    return(project_temp_dir)
 }
 

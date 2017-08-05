@@ -222,7 +222,22 @@ ui <- dashboardPage(
             tabItem(
                 tabName = 'experimental_designs',
                 fluidRow(
-                    box(width = 12,
+                    box(width = 4,
+                        tags$h3('Exploratory Analysis Parameters'),
+                        selectInput(inputId = 'experimental_design_exploratory_norm_select',
+                                    label = 'Exploratory Graphing Normalization Method',
+                                    choices = c('Rarefaction', 'Cumulative Sum Scaling'),
+                                    selected = 'Cumulative Sum Scaling'),
+                        uiOutput(outputId = 'experimental_design_exploratory_sample_threshold'),
+                        sliderInput(inputId = 'experimental_design_exploratory_filter_slider',
+                                    label = 'Low Pass Filter Threshold (Quantile)',
+                                    min = 0,
+                                    max = 100,
+                                    step = 1,
+                                    value = 15)
+                        
+                    ),
+                    box(width = 8,
                         collapsible = TRUE,
                         tags$h2('Setup and Run Your Experiments'),
                         'Now that you\'ve explored your data, you can set
@@ -239,6 +254,7 @@ ui <- dashboardPage(
                 ),
                 fluidRow(
                     box(width = 8,
+                        tags$h3('Statistical Analysis Parameters'),
                         uiOutput(outputId = 'experimental_design_boxes'),
                         actionButton(inputId = 'experimental_design_add',
                                      label = 'Add an Experiment',
@@ -249,7 +265,7 @@ ui <- dashboardPage(
                         actionButton(inputId = 'experimental_design_run',
                                      label = 'Run All Experiments',
                                      width = '200px'),
-                        textOutput(outputId = 'experimental_design_run_output')
+                        uiOutput(outputId = 'experimental_design_run_output')
                     )
                 )
             )
