@@ -320,6 +320,102 @@ exploratory_zero_inflated_gaussian_regression <- function(analytic_MRexp,
 }
 
 
+generate_permanova_table <- function(data,
+                                     data_type,
+                                     metadata,
+                                     annotation_level,
+                                     metadata_feature,
+                                     low_pass_filter_threshold,
+                                     norm_method,
+                                     sample_depth,
+                                     strata,
+                                     nested_features,
+                                     fixed_features) {
+    out_dt <- data.table()
+    
+    # if(data_type == 'Resistome') {
+    #     
+    #     # Normalization
+    #     if(norm_method == 'Rarefaction') {
+    #         amr_data_list <- rarefy_normalize_and_extract(sampling_depth=sample_depth,
+    #                                                       filtering_quantile=low_pass_filter_threshold,
+    #                                                       amr_MRexp=data[[1]])
+    #         amr_data_list[[7]] <- data[[2]]
+    #     }
+    #     else if(norm_method == 'Cumulative Sum Scaling') {
+    #         amr_data_list <- CSS_normalize_and_extract(filtering_quantile=low_pass_filter_threshold,
+    #                                                    amr_MRexp=data[[1]])
+    #         amr_data_list[[7]] <- data[[2]]
+    #     }
+    #     
+    #     # Aggregation and data set creation
+    #     analytic_list <- aggregate_and_filter(amr_data_list, data.table(metadata))
+    #     
+    #     # Distance matrix generation
+    #     distances <- list('euclidean', 'bray', 'jaccard', 'manhatten')
+    #     dist_mat <- lapply(distances, function(x) {
+    #         vegdist(t(MRcounts(analytic_list[[1]][[amr_lookup[annotation_level]]])),
+    #                 method = x)
+    #     })
+    #     
+    #     temp <<- dist_mat
+    #     # PERMANOVA table generation
+    #     strata_string <- ''
+    #     if(strata != 'None') {
+    #         if(!is.na(nested_features)) {
+    #             if(metadata_feature %in% nested_features) {
+    #                 strata_string <- paste(list(strata), nested_features, sep=' / ', collapse=' + ')
+    #             }
+    #         }
+    #     }
+    #     if(strata_string != '') {
+    #         if(length(fixed_features) > 0) {
+    #             model_string <- paste(strata_string)
+    #         }
+    #         else {
+    #             model_string <- strata_string
+    #         }
+    #     }
+    #     else {
+    #         model_string <- paste(fixed_features, collapse=' + ')
+    #     }
+    #     res <- lapply(dist_mat, function(x) {
+    #         local_model <- paste(' ~', model_string, sep=' ')
+    #         if(strata != 'None') {
+    #             local_res <- adonis()
+    #         }
+    #         else {
+    #             local_res <- adonis()
+    #         }
+    #         
+    #     })
+    #     
+    # }
+    # else if(data_type == 'Microbiome') {
+    #     
+    #     # Normalization
+    #     if(norm_method == 'Rarefaction') {
+    #         microbiome_data_list <- rarefy_normalize_and_extract(sampling_depth=sample_depth,
+    #                                                              filtering_quantile=low_pass_filter_threshold,
+    #                                                              kraken_MRexp=data[[1]])
+    #         microbiome_data_list[[7]] <- NA
+    #     }
+    #     else if(norm_method == 'Cumulative Sum Scaling') {
+    #         microbiome_data_list <- CSS_normalize_and_extract(filtering_quantile=low_pass_filter_threshold,
+    #                                                           kraken_MRexp=data[[1]])
+    #         microbiome_data_list[[7]] <- NA
+    #     }
+    #     
+    #     # Aggregation and data set creation
+    #     analytic_list <- aggregate_and_filter(microbiome_data_list, data.table(metadata))
+    #     
+    #     # PERMANOVA table generation
+    # }
+    
+    return(out_dt)
+}
+
+
 
 
 

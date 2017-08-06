@@ -825,9 +825,13 @@ server <- function(input, output, session) {
         }
     })
     
+    # Persistent data structure for tempdir handling
+    temp_reactive <- reactiveVal(value = character(0))
+    
     # Run analyses button
     observeEvent(input$experimental_design_run, {
         temp_dir <- tempdir()
+        temp_reactive(temp_dir)
         
         data_present <- c()
         if(!is.null(microbiome_data())) {
@@ -1072,13 +1076,163 @@ server <- function(input, output, session) {
                                                                        fname, sep='/'), '.csv', sep='', collapse=''))
                                     }
                                 }
-                                
                             }
                         }
                     }
                 })
             }
         })
+    })
+    
+    # Download resulting data
+    output$experimental_design_download <- downloadHandler(
+        filename = function() {
+            paste(gsub(' ', '_', input$project_name), '.zip', sep='')
+        },
+        content = function(con) {
+            utils::zip(zipfile=con,
+                       files=list.files(paste(temp_reactive(), input$project_name, sep='/'),
+                                        recursive = TRUE,
+                                        full.names = TRUE))
+        },
+        contentType = 'application/zip'
+    )
+    
+    # Adonis PERMANOVA parameter code
+    # Data type
+    observe({
+        data_present <- c()
+        if(!is.null(amr_counts()) && !is.null(amr_annotations())) {
+            data_present <- c(data_present, 'Resistome')
+        }
+        if(!is.null(microbiome_data())) {
+            data_present <- c(data_present, 'Microbiome')
+        }
+        
+        updateSelectInput(session = session,
+                          inputId = 'adonis_data_type',
+                          choices = data_present)
+    })
+    
+    # Annotation Level
+    observe({
+        x <- input$adonis_data_type
+        if(x == 'Resistome') {
+            updateSelectInput(session = session,
+                              inputId = 'adonis_annotation_level',
+                              choices = names(amr_lookup))
+        }
+        else if(x == 'Microbiome') {
+            updateSelectInput(session = session,
+                              inputId = 'adonis_annotation_level',
+                              choices = names(microbiome_lookup))
+        }
+    })
+    
+    # Rarefaction sampling depth
+    observe({
+        x <- input$adonis_normalization
+        if(x == 'Cumulative Sum Scaling') {
+            output$adonis_rarefaction_slider <- renderUI({
+                character(0)
+            })
+        }
+        else if(x == 'Rarefaction') {
+            min_samples <- c()
+            isolate({
+                if(!is.null(metadata()))  {
+                    min_samples <- c(min_samples, nrow(metadata()))
+                }
+                if(!is.null(amr_counts())) {
+                    min_samples <- c(min_samples, ncol(amr_counts()))
+                }
+                if(!is.null(microbiome_data())) {
+                    min_samples <- c(min_samples, ncol(microbiome_data()))
+                }
+            })
+            if(length(min_samples) > 0) {
+                output$adonis_rarefaction_slider <- renderUI({
+                    sliderInput(inputId = 'adonis_rarefaction_sampling_depth',
+                                label = 'Rarefy to Ranked Sample # (lowest to highest):',
+                                min = 1,
+                                max = min(min_samples),
+                                step = 1,
+                                value = 1)
+                })
+            }
+        }
+    })
+    
+    # Metadata features
+    observe({
+        x <- active_metadata_fields$data
+        updateSelectInput(session = session,
+                          inputId = 'adonis_feature_select',
+                          choices = x)
+        updateCheckboxGroupInput(session = session,
+                                 inputId = 'adonis_checkbox_features',
+                                 choices = x,
+                                 selected = x)
+        updateSelectInput(session = session,
+                          inputId = 'adonis_strata_feature',
+                          choices = c('None', x),
+                          selected = 'None')
+    })
+    
+    # Feature types
+    observe({
+        x <- input$adonis_checkbox_features
+        y <- input$adonis_feature_select
+        z <- input$adonis_strata_feature
+        
+        choices <- x[!(x %in% z)]
+        
+        if(length(choices) > 0 && (z != 'None')) {
+            output$adonis_nested_choices <- renderUI({
+                checkboxGroupInput(inputId = 'adonis_nested_choices',
+                                   label = 'Factors Nested Under Strata Choice',
+                                   choices = choices)
+            })
+        }
+        else {
+            output$adonis_nested_choices <- renderUI({
+                character(0)
+            })
+        }
+    })
+    
+    # PERMANOVA run analysis
+    observeEvent(input$adonis_run_model, {
+        isolate({
+            filtering_threshold <- as.numeric(input$adonis_filter_threshold) / 100
+            
+            if(input$adonis_normalization == 'Rarefaction') {
+                depth <- input$adonis_rarefaction_sampling_depth
+            }
+            
+            strata <- input$adonis_strata_feature
+            if(strata != 'None') {
+                nested_features <- input$adonis_nested_choices
+                fixed_features <- input$adonis_checkbox_features[!(input$adonis_checkbox_features %in% strata) &&
+                                                                     !(input$adonis_checkbox_features %in% nested_features)]
+            }
+            
+            if(input$adonis_data_type == 'Resistome') {
+                dt <- generate_permanova_table(data=list(microbiome_data()),
+                                               data_type='Resistome',
+                                               metadata=metadata_updated$data,
+                                               annotation_level=input$adonis_annotation_level,
+                                               metadata_feature=input$adonis_feature_select,
+                                               low_pass_filter_threshold=filtering_threshold,
+                                               norm_method=input$adonis_normalization,
+                                               sample_depth=depth,
+                                               strata=strata,
+                                               nested_features=nested_features,
+                                               fixed_features=fixed_features)
+            }
+        })
+        
+        
     })
 }
 
