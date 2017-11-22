@@ -5,9 +5,9 @@ ui <- dashboardPage(
             menuItem('1. Load Data', tabName = 'load_data', icon = icon('upload')),
             menuItem('2. Format Metadata', tabName = 'format_metadata', icon = icon('th')),
             menuItem('3. Data Exploration', tabName = 'data_exploration', icon = icon('cog')),
-            menuItem('4. Experimental Designs', tabName = 'experimental_designs', icon = icon('dashboard')),
-            menuItem('5. PERMANOVA', tabName = 'permanova', icon = icon('bar-chart')),
-            menuItem('6. Procrustes', tabName = 'procrustes', icon = icon('bar-chart'))
+            menuItem('4. Experimental Designs', tabName = 'experimental_designs', icon = icon('dashboard'))
+            # menuItem('5. PERMANOVA', tabName = 'permanova', icon = icon('bar-chart')),
+            # menuItem('6. Procrustes', tabName = 'procrustes', icon = icon('bar-chart'))
         )
     ),
     dashboardBody(
@@ -198,8 +198,7 @@ ui <- dashboardPage(
                                                     'PCA',
                                                     'Bar Graph',
                                                     'Heatmap',
-                                                    'ZIG Regression',
-                                                    'Elastic Net Regression'),
+                                                    'ZIG Regression'),
                                         selected='PCA'),
                             selectInput(inputId = 'exploratory_feature_select',
                                         label = 'Metadata Feature',
@@ -272,48 +271,48 @@ ui <- dashboardPage(
                                      width = '200px')
                     )
                 )
-            ),
-            tabItem(
-                tabName = 'permanova',
-                fluidRow(
-                    box(tags$h3('PERMANOVA and Preprocessing Parameters'),
-                        selectInput(inputId = 'adonis_data_type',
-                                    label = 'Data Type',
-                                    choices = c()),
-                        selectInput(inputId = 'adonis_normalization',
-                                    label = 'Normalization Method',
-                                    choices = c('Cumulative Sum Scaling',
-                                                'Rarefaction'),
-                                    selected = 'Cumulative Sum Scaling'),
-                        uiOutput(outputId = 'adonis_rarefaction_slider'),
-                        selectInput(inputId = 'adonis_annotation_level',
-                                    label = 'Annotation Level',
-                                    choices = c()),
-                        selectInput(inputId = 'adonis_feature_select',
-                                    label = 'Metadata Feature',
-                                    choices = c()),
-                        sliderInput(inputId = 'adonis_filter_threshold',
-                                    label = 'Low Pass Filter Threshold (Quantile)',
-                                    min = 0,
-                                    max = 100,
-                                    step = 1,
-                                    value = 15),
-                        checkboxGroupInput(inputId = 'adonis_checkbox_features',
-                                           label = 'Features to Include in Model',
-                                           choices = c(),
-                                           selected = c()),
-                        selectInput(inputId = 'adonis_strata_feature',
-                                    label = 'Strata (for Nested Designs)',
-                                    choices = c()),
-                        uiOutput(outputId = 'adonis_nested_choices')
-                    ),
-                    box(tags$h3('Results'),
-                        actionButton(inputId = 'adonis_run_model',
-                                     label = 'Run PERMANOVA Model',
-                                     width = '200px'),
-                        dataTableOutput(outputId = 'adonis_table_output'))
-                )
             )
+            # tabItem(
+            #     tabName = 'permanova',
+            #     fluidRow(
+            #         box(tags$h3('PERMANOVA and Preprocessing Parameters'),
+            #             selectInput(inputId = 'adonis_data_type',
+            #                         label = 'Data Type',
+            #                         choices = c()),
+            #             selectInput(inputId = 'adonis_normalization',
+            #                         label = 'Normalization Method',
+            #                         choices = c('Cumulative Sum Scaling',
+            #                                     'Rarefaction'),
+            #                         selected = 'Cumulative Sum Scaling'),
+            #             uiOutput(outputId = 'adonis_rarefaction_slider'),
+            #             selectInput(inputId = 'adonis_annotation_level',
+            #                         label = 'Annotation Level',
+            #                         choices = c()),
+            #             selectInput(inputId = 'adonis_feature_select',
+            #                         label = 'Metadata Feature',
+            #                         choices = c()),
+            #             sliderInput(inputId = 'adonis_filter_threshold',
+            #                         label = 'Low Pass Filter Threshold (Quantile)',
+            #                         min = 0,
+            #                         max = 100,
+            #                         step = 1,
+            #                         value = 15),
+            #             checkboxGroupInput(inputId = 'adonis_checkbox_features',
+            #                                label = 'Features to Include in Model',
+            #                                choices = c(),
+            #                                selected = c()),
+            #             selectInput(inputId = 'adonis_strata_feature',
+            #                         label = 'Strata (for Nested Designs)',
+            #                         choices = c()),
+            #             uiOutput(outputId = 'adonis_nested_choices')
+            #         ),
+            #         box(tags$h3('Results'),
+            #             actionButton(inputId = 'adonis_run_model',
+            #                          label = 'Run PERMANOVA Model',
+            #                          width = '200px'),
+            #             dataTableOutput(outputId = 'adonis_table_output'))
+            #     )
+            # )
         )
     )
 )

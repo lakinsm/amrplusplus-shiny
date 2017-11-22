@@ -416,7 +416,7 @@ server <- function(input, output, session) {
             
             filtering_value <- as.numeric(input$filtering_slider) / 100
             
-            if(input$exploratory_analysis_type_select %in% c('NMDS', 'PCA', 'Bar Plot', 'Heatmap')) {
+            if(input$exploratory_analysis_type_select %in% c('NMDS', 'PCA', 'Bar Graph', 'Heatmap')) {
                 if(input$exploratory_data_type_preview_select == 'Resistome') {
                     g <- generate_exploratory_preview(data=list(amr_counts(), amr_annotations()),
                                                       data_type='Resistome',
@@ -938,7 +938,7 @@ server <- function(input, output, session) {
                                 incProgress(amount = 1/n,
                                             detail = paste('Regression', experimental_designs$names[[i]], sep=' '))
                                 for(l in names(amr_lookup)) {
-                                    dt <- generate_statistical_output(data=list(amr_counts(), amr_annotations()),
+                                    dt <- generate_statistical_preview(data=list(amr_counts(), amr_annotations()),
                                                                       data_type='Resistome',
                                                                       metadata=metadata_updated$data,
                                                                       annotation_level=l,
@@ -1054,7 +1054,7 @@ server <- function(input, output, session) {
                                 incProgress(amount = 1/n,
                                             detail = paste('Regression', experimental_designs$names[[i]], sep=' '))
                                 for(l in names(microbiome_lookup)) {
-                                    dt <- generate_statistical_output(data=list(microbiome_data()),
+                                    dt <- generate_statistical_preview(data=list(microbiome_data()),
                                                                       data_type='Microbiome',
                                                                       metadata=metadata_updated$data,
                                                                       annotation_level=l,
@@ -1098,141 +1098,141 @@ server <- function(input, output, session) {
         contentType = 'application/zip'
     )
     
-    # Adonis PERMANOVA parameter code
-    # Data type
-    observe({
-        data_present <- c()
-        if(!is.null(amr_counts()) && !is.null(amr_annotations())) {
-            data_present <- c(data_present, 'Resistome')
-        }
-        if(!is.null(microbiome_data())) {
-            data_present <- c(data_present, 'Microbiome')
-        }
-        
-        updateSelectInput(session = session,
-                          inputId = 'adonis_data_type',
-                          choices = data_present)
-    })
-    
-    # Annotation Level
-    observe({
-        x <- input$adonis_data_type
-        if(x == 'Resistome') {
-            updateSelectInput(session = session,
-                              inputId = 'adonis_annotation_level',
-                              choices = names(amr_lookup))
-        }
-        else if(x == 'Microbiome') {
-            updateSelectInput(session = session,
-                              inputId = 'adonis_annotation_level',
-                              choices = names(microbiome_lookup))
-        }
-    })
-    
-    # Rarefaction sampling depth
-    observe({
-        x <- input$adonis_normalization
-        if(x == 'Cumulative Sum Scaling') {
-            output$adonis_rarefaction_slider <- renderUI({
-                character(0)
-            })
-        }
-        else if(x == 'Rarefaction') {
-            min_samples <- c()
-            isolate({
-                if(!is.null(metadata()))  {
-                    min_samples <- c(min_samples, nrow(metadata()))
-                }
-                if(!is.null(amr_counts())) {
-                    min_samples <- c(min_samples, ncol(amr_counts()))
-                }
-                if(!is.null(microbiome_data())) {
-                    min_samples <- c(min_samples, ncol(microbiome_data()))
-                }
-            })
-            if(length(min_samples) > 0) {
-                output$adonis_rarefaction_slider <- renderUI({
-                    sliderInput(inputId = 'adonis_rarefaction_sampling_depth',
-                                label = 'Rarefy to Ranked Sample # (lowest to highest):',
-                                min = 1,
-                                max = min(min_samples),
-                                step = 1,
-                                value = 1)
-                })
-            }
-        }
-    })
-    
-    # Metadata features
-    observe({
-        x <- active_metadata_fields$data
-        updateSelectInput(session = session,
-                          inputId = 'adonis_feature_select',
-                          choices = x)
-        updateCheckboxGroupInput(session = session,
-                                 inputId = 'adonis_checkbox_features',
-                                 choices = x,
-                                 selected = x)
-        updateSelectInput(session = session,
-                          inputId = 'adonis_strata_feature',
-                          choices = c('None', x),
-                          selected = 'None')
-    })
-    
-    # Feature types
-    observe({
-        x <- input$adonis_checkbox_features
-        y <- input$adonis_feature_select
-        z <- input$adonis_strata_feature
-        
-        choices <- x[!(x %in% z)]
-        
-        if(length(choices) > 0 && (z != 'None')) {
-            output$adonis_nested_choices <- renderUI({
-                checkboxGroupInput(inputId = 'adonis_nested_choices',
-                                   label = 'Factors Nested Under Strata Choice',
-                                   choices = choices)
-            })
-        }
-        else {
-            output$adonis_nested_choices <- renderUI({
-                character(0)
-            })
-        }
-    })
-    
-    # PERMANOVA run analysis
-    observeEvent(input$adonis_run_model, {
-        isolate({
-            filtering_threshold <- as.numeric(input$adonis_filter_threshold) / 100
-            
-            if(input$adonis_normalization == 'Rarefaction') {
-                depth <- input$adonis_rarefaction_sampling_depth
-            }
-            
-            strata <- input$adonis_strata_feature
-            if(strata != 'None') {
-                nested_features <- input$adonis_nested_choices
-                fixed_features <- input$adonis_checkbox_features[!(input$adonis_checkbox_features %in% strata) &&
-                                                                     !(input$adonis_checkbox_features %in% nested_features)]
-            }
-            
-            if(input$adonis_data_type == 'Resistome') {
-                dt <- generate_permanova_table(data=list(microbiome_data()),
-                                               data_type='Resistome',
-                                               metadata=metadata_updated$data,
-                                               annotation_level=input$adonis_annotation_level,
-                                               metadata_feature=input$adonis_feature_select,
-                                               low_pass_filter_threshold=filtering_threshold,
-                                               norm_method=input$adonis_normalization,
-                                               sample_depth=depth,
-                                               strata=strata,
-                                               nested_features=nested_features,
-                                               fixed_features=fixed_features)
-            }
-        })
-        
-        
-    })
+    # # Adonis PERMANOVA parameter code
+    # # Data type
+    # observe({
+    #     data_present <- c()
+    #     if(!is.null(amr_counts()) && !is.null(amr_annotations())) {
+    #         data_present <- c(data_present, 'Resistome')
+    #     }
+    #     if(!is.null(microbiome_data())) {
+    #         data_present <- c(data_present, 'Microbiome')
+    #     }
+    #     
+    #     updateSelectInput(session = session,
+    #                       inputId = 'adonis_data_type',
+    #                       choices = data_present)
+    # })
+    # 
+    # # Annotation Level
+    # observe({
+    #     x <- input$adonis_data_type
+    #     if(x == 'Resistome') {
+    #         updateSelectInput(session = session,
+    #                           inputId = 'adonis_annotation_level',
+    #                           choices = names(amr_lookup))
+    #     }
+    #     else if(x == 'Microbiome') {
+    #         updateSelectInput(session = session,
+    #                           inputId = 'adonis_annotation_level',
+    #                           choices = names(microbiome_lookup))
+    #     }
+    # })
+    # 
+    # # Rarefaction sampling depth
+    # observe({
+    #     x <- input$adonis_normalization
+    #     if(x == 'Cumulative Sum Scaling') {
+    #         output$adonis_rarefaction_slider <- renderUI({
+    #             character(0)
+    #         })
+    #     }
+    #     else if(x == 'Rarefaction') {
+    #         min_samples <- c()
+    #         isolate({
+    #             if(!is.null(metadata()))  {
+    #                 min_samples <- c(min_samples, nrow(metadata()))
+    #             }
+    #             if(!is.null(amr_counts())) {
+    #                 min_samples <- c(min_samples, ncol(amr_counts()))
+    #             }
+    #             if(!is.null(microbiome_data())) {
+    #                 min_samples <- c(min_samples, ncol(microbiome_data()))
+    #             }
+    #         })
+    #         if(length(min_samples) > 0) {
+    #             output$adonis_rarefaction_slider <- renderUI({
+    #                 sliderInput(inputId = 'adonis_rarefaction_sampling_depth',
+    #                             label = 'Rarefy to Ranked Sample # (lowest to highest):',
+    #                             min = 1,
+    #                             max = min(min_samples),
+    #                             step = 1,
+    #                             value = 1)
+    #             })
+    #         }
+    #     }
+    # })
+    # 
+    # # Metadata features
+    # observe({
+    #     x <- active_metadata_fields$data
+    #     updateSelectInput(session = session,
+    #                       inputId = 'adonis_feature_select',
+    #                       choices = x)
+    #     updateCheckboxGroupInput(session = session,
+    #                              inputId = 'adonis_checkbox_features',
+    #                              choices = x,
+    #                              selected = x)
+    #     updateSelectInput(session = session,
+    #                       inputId = 'adonis_strata_feature',
+    #                       choices = c('None', x),
+    #                       selected = 'None')
+    # })
+    # 
+    # # Feature types
+    # observe({
+    #     x <- input$adonis_checkbox_features
+    #     y <- input$adonis_feature_select
+    #     z <- input$adonis_strata_feature
+    #     
+    #     choices <- x[!(x %in% z)]
+    #     
+    #     if(length(choices) > 0 && (z != 'None')) {
+    #         output$adonis_nested_choices <- renderUI({
+    #             checkboxGroupInput(inputId = 'adonis_nested_choices',
+    #                                label = 'Factors Nested Under Strata Choice',
+    #                                choices = choices)
+    #         })
+    #     }
+    #     else {
+    #         output$adonis_nested_choices <- renderUI({
+    #             character(0)
+    #         })
+    #     }
+    # })
+    # 
+    # # PERMANOVA run analysis
+    # observeEvent(input$adonis_run_model, {
+    #     isolate({
+    #         filtering_threshold <- as.numeric(input$adonis_filter_threshold) / 100
+    #         
+    #         if(input$adonis_normalization == 'Rarefaction') {
+    #             depth <- input$adonis_rarefaction_sampling_depth
+    #         }
+    #         
+    #         strata <- input$adonis_strata_feature
+    #         if(strata != 'None') {
+    #             nested_features <- input$adonis_nested_choices
+    #             fixed_features <- input$adonis_checkbox_features[!(input$adonis_checkbox_features %in% strata) &&
+    #                                                                  !(input$adonis_checkbox_features %in% nested_features)]
+    #         }
+    #         
+    #         if(input$adonis_data_type == 'Resistome') {
+    #             dt <- generate_permanova_table(data=list(microbiome_data()),
+    #                                            data_type='Resistome',
+    #                                            metadata=metadata_updated$data,
+    #                                            annotation_level=input$adonis_annotation_level,
+    #                                            metadata_feature=input$adonis_feature_select,
+    #                                            low_pass_filter_threshold=filtering_threshold,
+    #                                            norm_method=input$adonis_normalization,
+    #                                            sample_depth=depth,
+    #                                            strata=strata,
+    #                                            nested_features=nested_features,
+    #                                            fixed_features=fixed_features)
+    #         }
+    #     })
+    #     
+    #     
+    # })
 }
 

@@ -166,7 +166,7 @@ meg_heatmap <- function(melted_data,
         tile_subset <- data_subset_long(tile_subset, analysis_subset)
     }
     
-    sample_order <- unique(tile_subset[order(group_var), sample_var])
+    sample_order <- unique(tile_subset[[sample_var]][order(group_var)])
     tile_subset <- within(tile_subset, sample_var
                           <- factor(sample_var,
                                     levels=sample_order,
@@ -574,7 +574,7 @@ exploratory_heatmap <- function(melted_data,
         tile_subset <- data_subset_long(tile_subset, analysis_subset)
     }
     
-    sample_order <- unique(tile_subset[order(group_var), sample_var])
+    sample_order <- unique(tile_subset[[sample_var]][order(group_var)])
     tile_subset <- within(tile_subset, sample_var
                           <- factor(sample_var,
                                     levels=sample_order,
@@ -665,7 +665,7 @@ exploratory_barplot <- function(melted_data,
     bar_subset[, sample_number:=(length(unique(bar_subset[[sample_var]]))), by=c(group_var, 'Name')]
     bar_subset <- unique(bar_subset[, sum(Normalized_Count) / sample_number,
                                     by=c(group_var, 'Name')])
-    
+    print('Check12')
     numselect <- 11
     bar_names <- bar_select_top_counts(bar_subset, group_var, numselect)
     name_count <- length(unique(bar_names$Name))
@@ -674,7 +674,7 @@ exploratory_barplot <- function(melted_data,
         bar_names <- bar_select_top_counts(bar_subset, group_var, numselect)
         name_count <- length(unique(bar_names$Name))
     }
-    
+    print('Check13')
     bar_subset <- bar_subset[Name %in% bar_names$Name, ]
     
     
@@ -686,6 +686,8 @@ exploratory_barplot <- function(melted_data,
                                       levels=source_labels, ordered=T)
     
     bar_subset[['Name']] <- strtrim(bar_subset[['Name']], 40)
+    
+    print('Check14')
     
     meg_bar <- ggplot(bar_subset, aes_string(x=group_var, y='Normalized_Count', fill='Name')) +
         geom_bar(stat='identity') + 
@@ -702,5 +704,7 @@ exploratory_barplot <- function(melted_data,
         ylab('Mean of Normalized Count\n') +
         ggtitle(paste('Mean ', data_type, ' ', level_var, ' Normalized Count by ', group_var, '\n',
                       sep='', collapse=''))
+    
+    print('Check15')
     return(meg_bar)
 }
