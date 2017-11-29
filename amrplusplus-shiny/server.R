@@ -404,15 +404,11 @@ server <- function(input, output, session) {
                     subset_string <- c(subset_string, combined_str)
                 }
             }
-            print('check1')
-            
             
             sample_depth <- 0
             if(input$normalization_select == 'Rarefaction') {
                 sample_depth <- as.numeric(input$rarefaction_slider)
             }
-            
-            print('check2')
             
             filtering_value <- as.numeric(input$filtering_slider) / 100
             
@@ -459,7 +455,6 @@ server <- function(input, output, session) {
                     covars <- input$exploratory_statistical_feature_checkboxes[!(input$exploratory_statistical_feature_checkboxes %in% 
                                                                                    input$exploratory_statistical_random_effect_select)]
                     primary_effect_idx <- which(covars == input$exploratory_feature_select)
-                    print(primary_effect_idx)
                     other_idx <- which(1:length(covars) != primary_effect_idx)
                     covars <- covars[c(primary_effect_idx, other_idx)]
                     covars <- c('~ 0', covars)
@@ -850,6 +845,8 @@ server <- function(input, output, session) {
                                                        experiment_names=experimental_designs$names,
                                                        experiment_activity=experimental_designs$activity)
             
+            setwd(temp_dir)
+            
             filter_quantile <- input$experimental_design_exploratory_filter_slider / 100
             if('Resistome' %in% data_present) {
                 withProgress(message = 'Running Resistome Analyses: ', value = 0, {
@@ -1091,7 +1088,7 @@ server <- function(input, output, session) {
         },
         content = function(con) {
             utils::zip(zipfile=con,
-                       files=list.files(paste(temp_reactive(), input$project_name, sep='/'),
+                       files=list.files(input$project_name,
                                         recursive = TRUE,
                                         full.names = TRUE))
         },

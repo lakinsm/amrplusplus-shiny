@@ -68,6 +68,9 @@ meg_ordination <- function(data_list,
         ord_points <- metadata[ord_points]
         ord_points <- ord_points[, .SD, .SDcols=c(sample_var, hull_var, 'Ord1', 'Ord2', 'Level_ID')]
         names(ord_points)[2] <- 'Group_Var'
+        
+        colnames(ord_points)[colnames(ord_points) == sample_var] <- 'ID'
+        
         all_ord <- rbind(all_ord, ord_points)
         
         hulls <- ord_points[, meg_find_hulls(.SD), .SDcols=c('Ord1', 'Ord2'), by=Group_Var]
@@ -181,13 +184,12 @@ meg_heatmap <- function(melted_data,
     tile_names <- heatmap_select_top_counts(tile_subset, group_var,
                                             sample_var, numselect)
     name_count <- length(unique(tile_names$Name))
-    while(name_count > 20) {
+    while(name_count > 20 && numselect > 1) {
         numselect <- numselect - 1
         tile_names <- heatmap_select_top_counts(tile_subset, group_var,
                                                 sample_var, numselect)
         name_count <- length(unique(tile_names$Name))
     }
-    
     tile_subset <- tile_subset[Name %in% tile_names$Name, ]
     
     tile <- ggplot(tile_subset, aes_string(x=sample_var, y='Name')) +
@@ -401,6 +403,10 @@ meg_barplot <- function(melted_data,
                         analysis_subset,
                         outdir,
                         data_type) {
+    if(!(sample_var %in% colnames(melted_data)) && ('ID' %in% colnames(melted_data))) {
+        colnames(melted_data)[colnames(melted_data) == 'ID'] <- sample_var
+    }
+    
     setkeyv(melted_data, sample_var)
     melted_data <- metadata[melted_data]
     
@@ -432,7 +438,7 @@ meg_barplot <- function(melted_data,
     numselect <- 11
     bar_names <- bar_select_top_counts(bar_subset, group_var, numselect)
     name_count <- length(unique(bar_names$Name))
-    while(name_count > 11) {
+    while(name_count > 11 && numselect > 1) {
         numselect <- numselect - 1
         bar_names <- bar_select_top_counts(bar_subset, group_var, numselect)
         name_count <- length(unique(bar_names$Name))
@@ -561,7 +567,7 @@ exploratory_heatmap <- function(melted_data,
                                 data_type) {
     tile_subset <- melted_data[Level_ID == level_var, ]
     
-    if(!(sample_var) %in% colnames(tile_subset) && ('ID' %in% tile_subset)) {
+    if(!(sample_var %in% colnames(tile_subset)) && ('ID' %in% colnames(tile_subset))) {
         colnames(tile_subset)[colnames(tile_subset) == 'ID'] <- sample_var
     }
     
@@ -589,7 +595,7 @@ exploratory_heatmap <- function(melted_data,
     tile_names <- heatmap_select_top_counts(tile_subset, group_var,
                                             sample_var, numselect)
     name_count <- length(unique(tile_names$Name))
-    while(name_count > 20) {
+    while(name_count > 20 && numselect > 1) {
         numselect <- numselect - 1
         tile_names <- heatmap_select_top_counts(tile_subset, group_var,
                                                 sample_var, numselect)
@@ -633,8 +639,7 @@ exploratory_barplot <- function(melted_data,
                                 level_var,
                                 analysis_subset,
                                 data_type) {
-    
-    if(!(sample_var) %in% colnames(melted_data) && ('ID' %in% melted_data)) {
+    if(!(sample_var %in% colnames(melted_data)) && ('ID' %in% colnames(melted_data))) {
         colnames(melted_data)[colnames(melted_data) == 'ID'] <- sample_var
     }
     
@@ -665,16 +670,14 @@ exploratory_barplot <- function(melted_data,
     bar_subset[, sample_number:=(length(unique(bar_subset[[sample_var]]))), by=c(group_var, 'Name')]
     bar_subset <- unique(bar_subset[, sum(Normalized_Count) / sample_number,
                                     by=c(group_var, 'Name')])
-    print('Check12')
     numselect <- 11
     bar_names <- bar_select_top_counts(bar_subset, group_var, numselect)
     name_count <- length(unique(bar_names$Name))
-    while(name_count > 11) {
+    while(name_count > 11 && numselect > 1) {
         numselect <- numselect - 1
         bar_names <- bar_select_top_counts(bar_subset, group_var, numselect)
         name_count <- length(unique(bar_names$Name))
     }
-    print('Check13')
     bar_subset <- bar_subset[Name %in% bar_names$Name, ]
     
     
@@ -686,8 +689,6 @@ exploratory_barplot <- function(melted_data,
                                       levels=source_labels, ordered=T)
     
     bar_subset[['Name']] <- strtrim(bar_subset[['Name']], 40)
-    
-    print('Check14')
     
     meg_bar <- ggplot(bar_subset, aes_string(x=group_var, y='Normalized_Count', fill='Name')) +
         geom_bar(stat='identity') + 
@@ -705,6 +706,5 @@ exploratory_barplot <- function(melted_data,
         ggtitle(paste('Mean ', data_type, ' ', level_var, ' Normalized Count by ', group_var, '\n',
                       sep='', collapse=''))
     
-    print('Check15')
     return(meg_bar)
 }
