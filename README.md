@@ -1,6 +1,7 @@
-# AMR++ Shiny: Statistics Interface for Metagenomic Analysis
+# AMR++ Shiny: Statistics Interface for Metagenomic Resistome and Microbiome Analyses
 
 **Citation:**
+
 Lakin, S.M., Dean, C., Noyes, N.R., Dettenwanger, A., Spencer Ross, A., Doster, E., Rovira, P., Abdo, Z., Jones, K.L., Ruiz, J., Belk, K.E., Morley, P.S., Boucher, C. (2017)
 MEGARes: an antimicrobial database for high throughput sequencing. *Nucleic Acids Res.*, 45. DOI: 10.1093/nar/gkw1009
 
@@ -25,7 +26,7 @@ It is important that you have installed up-to-date packages and are running an R
 
 ## Useage
 
-AMR++ Shiny has instructions built into the App describing each step.  You will need the following files that are output from the AMR++ Nextflow pipeline:
+AMR++ Shiny has instructions built into the App describing each step.  You will need the following files that are output from the AMR++ Nextflow pipeline (NOTE: the MEGARes annotation file must match the version of the file used in the AMR++ Nextflow pipeline):
 
 **Resistome analysis alone:**
 
