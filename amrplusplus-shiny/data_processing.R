@@ -214,6 +214,8 @@ CSS_normalize_and_extract <- function(filtering_quantile,
     kraken_norm <- NA
     kraken_raw <- NA
     if(!is.na(kraken_MRexp)) {
+        valid_samples <- apply(MRcounts(kraken_MRexp), 2, function(x) {sum(x > 0)}) > 1
+        kraken_MRexp <- kraken_MRexp[, valid_samples]
         cumNorm(kraken_MRexp)
         kraken_norm <- data.table(MRcounts(kraken_MRexp, norm=T))
         kraken_norm_filtering_threshold <- quantile(rowSums(kraken_norm), filtering_quantile)
@@ -228,6 +230,8 @@ CSS_normalize_and_extract <- function(filtering_quantile,
         kraken_raw[, id := ( rownames(kraken_MRexp)[filter_indices] )]
     }
     if(!is.na(amr_MRexp)) {
+        valid_samples <- apply(MRcounts(amr_MRexp), 2, function(x) {sum(x > 0)}) > 1
+        amr_MRexp <- amr_MRexp[, valid_samples]
         cumNorm(amr_MRexp)
         amr_norm <- data.table(MRcounts(amr_MRexp, norm=T))
         amr_norm_filtering_threshold <- quantile(rowSums(amr_norm), filtering_quantile)
