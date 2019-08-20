@@ -192,6 +192,14 @@ meg_heatmap <- function(melted_data,
     }
     tile_subset <- tile_subset[Name %in% tile_names$Name, ]
     
+    tile_subset[['Name']] <- strtrim(tile_subset[['Name']], 40)
+    
+    name_sums <- tapply(tile_subset[['Normalized_Count']],
+                        tile_subset[['Name']], sum)
+    name_labels <- names(name_sums)[order(name_sums, decreasing=F)]
+    tile_subset[['Name']] <- factor(tile_subset[['Name']], levels=name_labels, ordered=T)
+    
+    
     tile <- ggplot(tile_subset, aes_string(x=sample_var, y='Name')) +
         geom_tile(aes(fill=log2(Normalized_Count+1))) +
         facet_wrap(as.formula(paste('~', group_var)), switch='x', scales = 'free_x', nrow = 1) +
@@ -454,6 +462,10 @@ meg_barplot <- function(melted_data,
     bar_subset[[group_var]] <- factor(bar_subset[[group_var]],
                                       levels=source_labels, ordered=T)
     
+    name_sums <- tapply(bar_subset[['Normalized_Count']],
+                        bar_subset[['Name']], sum)
+    name_labels <- names(name_sums)[order(name_sums, decreasing=F)]
+    bar_subset[['Name']] <- factor(bar_subset[['Name']], levels=name_labels, ordered=T)
     
     meg_bar <- ggplot(bar_subset, aes_string(x=group_var, y='Normalized_Count', fill='Name')) +
         geom_bar(stat='identity') + 
@@ -606,6 +618,11 @@ exploratory_heatmap <- function(melted_data,
     
     tile_subset[['Name']] <- strtrim(tile_subset[['Name']], 40)
     
+    name_sums <- tapply(tile_subset[['Normalized_Count']],
+                        tile_subset[['Name']], sum)
+    name_labels <- names(name_sums)[order(name_sums, decreasing=F)]
+    tile_subset[['Name']] <- factor(tile_subset[['Name']], levels=name_labels, ordered=T)
+    
     tile <- ggplot(tile_subset, aes_string(x=sample_var, y='Name')) +
         geom_tile(aes(fill=log2(Normalized_Count+1))) +
         facet_wrap(as.formula(paste('~', group_var)), switch='x', scales = 'free_x', nrow = 1) +
@@ -689,6 +706,11 @@ exploratory_barplot <- function(melted_data,
                                       levels=source_labels, ordered=T)
     
     bar_subset[['Name']] <- strtrim(bar_subset[['Name']], 40)
+    
+    name_sums <- tapply(bar_subset[['Normalized_Count']],
+                        bar_subset[['Name']], sum)
+    name_labels <- names(name_sums)[order(name_sums, decreasing=F)]
+    bar_subset[['Name']] <- factor(bar_subset[['Name']], levels=name_labels, ordered=T)
     
     meg_bar <- ggplot(bar_subset, aes_string(x=group_var, y='Normalized_Count', fill='Name')) +
         geom_bar(stat='identity') + 

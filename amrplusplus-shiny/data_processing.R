@@ -434,13 +434,29 @@ aggregate_and_filter <- function(dt_list,
     
     if(!is.na(kraken_norm)) {
         kraken_taxonomy <- data.table(id=rownames(kraken))
-        setDT(kraken_taxonomy)[, c('Domain',
-                                   'Phylum',
-                                   'Class',
-                                   'Order',
-                                   'Family',
-                                   'Genus',
-                                   'Species') := tstrsplit(id, '|', type.convert = TRUE, fixed = TRUE)]
+        num_sep = max(sapply(kraken_taxonomy$id, function(x) {sum(unlist(strsplit(x, '')) == '|')}))
+        
+        if(num_sep <= 6) {
+            setDT(kraken_taxonomy)[, c('Domain',
+                                       'Phylum',
+                                       'Class',
+                                       'Order',
+                                       'Family',
+                                       'Genus',
+                                       'Species') := tstrsplit(id, '|', type.convert = TRUE, fixed = TRUE)]
+        } else if(num_sep == 7) {
+            setDT(kraken_taxonomy)[, c('Domain',
+                                       'Kingdom',
+                                       'Phylum',
+                                       'Class',
+                                       'Order',
+                                       'Family',
+                                       'Genus',
+                                       'Species') := tstrsplit(id, '|', type.convert = TRUE, fixed = TRUE)]
+        }
+        
+        kraken_taxonomy[, Kingdom:=NULL]
+        
         setkey(kraken_taxonomy, id)
         setkey(kraken_norm, id)
         kraken_norm <- kraken_taxonomy[kraken_norm]  # left outer join
